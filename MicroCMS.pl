@@ -446,6 +446,26 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 @@ help.html.ep
 %= include 'default';
 %= t h3 => 'Help'
+
+<p>Mojolicious lite and bootstrap based simple cms</p>
+
+<b>requirements</b>
+
+<ul>
+<li>-	perl 5.10 to higher</li>
+</ul>
+
+<b>install</b>
+
+<ul>
+<li>-  $ curl get.mojolicio.us | sh</li>
+start developer server
+<li>-  $ morbo MicroCMS.pl</li>
+or start production server
+<li>-  $ hypnotoad MicroCMS.pl</li>
+
+</ul>
+
 %= include 'footer';
 
 
