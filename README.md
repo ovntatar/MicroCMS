@@ -11,3 +11,7 @@ Mojolicious lite and bootstrap based simple cms
 	-  $ git clone https://github.com/ovntatar/MicroCMS.git
 	-  $ cd MicroCMS
 	-  $ morbo MicroCMS.pl
+  login
+
+	- email: 	admin@myproject.com
+	- password:	admin
