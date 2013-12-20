@@ -1,17 +1,19 @@
 
 Mojolicious lite and bootstrap based simple cms
   
-  requirements
+  Requirements
   
-    - perl 5.10 to higher
+	- perl 5.10 to higher
+	- Mojolicious (4.62, Top Hat)
   
-  install
+  Install
   
 	-  $ curl get.mojolicio.us | sh
 	-  $ git clone https://github.com/ovntatar/MicroCMS.git
 	-  $ cd MicroCMS
 	-  $ morbo MicroCMS.pl
-  login
+  Login
 
+	- access:	http://127.0.0.1:3000
 	- email: 	admin@myproject.com
 	- password:	admin
