@@ -8,6 +8,6 @@ Mojolicious lite and bootstrap based simple cms
   install
   
 	-  $ curl get.mojolicio.us | sh
-    	-  $ git clone https://github.com/ovntatar/MicroCMS.git
+	-  $ git clone https://github.com/ovntatar/MicroCMS.git
 	-  $ cd MicroCMS
 	-  $ morbo MicroCMS.pl
