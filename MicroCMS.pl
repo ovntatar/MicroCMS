@@ -24,7 +24,7 @@ use ORLite {
         $dbh->do(
             'INSERT INTO user 
 				(email, password, rule) 
-				VALUES("admin@myproject.com","611020cac05ee652e41ffa30bba2cd1a", "3");'
+				VALUES("admin@myproject.com","21232f297a57a5a743894a0e4a801fc3", "3");'
         );
     },
 };
@@ -55,7 +55,7 @@ use Mojo::Date;
 helper auth => sub {
     my $self     = shift;
     my $email    = $self->param('email');
-    my $password = b(app->secret . $self->param('password'))->md5_sum;
+    my $password = b( $self->param('password') )->md5_sum;
 
     if ( Model::User->count( 'WHERE email=? AND password=?', $email, $password )
         == 1 )
@@ -180,7 +180,7 @@ post '/admin/adduser' => sub {
     }
     Model::User->create(
         email    => $self->param('email'),
-        password => b(app->secret . $self->param('password'))->md5_sum,
+        password => b( $self->param('password') )->md5_sum,
         rule     => $self->param('rule'),
     );
     $self->flash( sucess_message => 'Create user sucessfull!' );
