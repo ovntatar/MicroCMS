@@ -8,7 +8,9 @@ Mojolicious lite and bootstrap based simple cms
   
   Install
   
-	-  $ curl get.mojolicio.us | sh
+	-  $ curl -L https://cpanmin.us | perl - --sudo App::cpanminus.
+	-  $ cpanm ORLite.pm
+	-  $ cpanm Mojolicious
 	-  $ git clone https://github.com/ovntatar/MicroCMS.git
 	-  $ cd MicroCMS
 	-  $ morbo MicroCMS.pl
