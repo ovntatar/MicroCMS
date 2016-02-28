@@ -449,21 +449,20 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 
 <p>Mojolicious lite and bootstrap based simple cms</p>
 
-<b>requirements</b>
-
+<b>Requirements</b>
 <ul>
-<li>-	perl 5.10 to higher</li>
+<li>perl 5.10 to higher
+<li>Mojolicious (4.62, Top Hat)
 </ul>
 
-<b>install</b>
-
+<b>Install & Start dev Server</b>
 <ul>
-<li>-  $ curl get.mojolicio.us | sh</li>
-start developer server
-<li>-  $ morbo MicroCMS.pl</li>
-or start production server
-<li>-  $ hypnotoad MicroCMS.pl</li>
-
+<li>$ curl -L https://cpanmin.us | perl - --sudo App::cpanminus.</li>
+<li>$ cpanm ORLite.pm</li>
+<li>$ cpanm Mojolicious</li>
+<li>$ git clone https://github.com/ovntatar/MicroCMS.git</li>
+<li>$ cd MicroCMS</li>
+<li>$ morbo MicroCMS.pl</li>
 </ul>
 
 %= include 'footer';
