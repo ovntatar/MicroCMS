@@ -271,15 +271,32 @@ body {
 %= content 
 
 @@ footer.html.ep
-<hr>
-%= tag footer => begin
-  %= tag p => "Powered by: MicroCMS" 
-  %= link_to 'https://github.com/ovntatar/MicroCMS' => begin %>ovntatar<% end 
-%end
+
+<style>
+
+.footer {
+  bottom: 0;
+  width: 100%;
+  background-color: #000000;
+  height: 50px;
+}
+
+</style>
 </div>
-%= javascript '//netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js'
+</div>
+
+     <footer id="footer"  class="footer navbar-fixed-bottom"> 
+      <div class="container">
+        <br>
+        <p class="text-muted"><a href="https://github.com/ovntatar/MicroCMS">Project Page</a></p>
+      </div>
+
+</footer>
+
+%= javascript '//netdna.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js'
 </body>
 </html>
+
 
 @@ index.html.ep
 %= include 'default';
