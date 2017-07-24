@@ -188,11 +188,11 @@ __DATA__
 
 <!DOCTYPE html>
 <html lang="en">
-%= tag header => begin
-  %= tag meta => charset => 'utf-8'
-  %= tag meta => name => 'viewport'  => content=>'width=device-width, initial-scale=1.0'
-  %= tag meta => name => 'description' => content=>''
-  %= tag meta => name=> 'author' => content=>''
+%= t header => begin
+  %= t meta => charset => 'utf-8'
+  %= t meta => name => 'viewport'  => content=>'width=device-width, initial-scale=1.0'
+  %= t meta => name => 'description' => content=>''
+  %= t meta => name=> 'author' => content=>''
 %end
 %= stylesheet '//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css'
 %= stylesheet begin
@@ -203,32 +203,32 @@ body {
 %end
 
 <body>
-%= tag div => class => 'navbar navbar-inverse navbar-fixed-top' => role =>'navigation' => begin
-  %= tag div => class => 'container' => begin
-    %= tag div => class => 'navbar-header test111' => begin
-	    %= tag button => type=>'button' => class=> 'navbar-toggle' => 'data-toggle' => 'collapse' => 'data-target' => '.navbar-collapse' => begin
-	      %= tag span => class => 'sr-only' => 'Toggle navigation'
-	      %= tag span => class => 'icon-bar'
+%= t div => class => 'navbar navbar-inverse navbar-fixed-top' => role =>'navigation' => begin
+  %= t div => class => 'container' => begin
+    %= t div => class => 'navbar-header test111' => begin
+	    %= t button => type=>'button' => class=> 'navbar-toggle' => 'data-toggle' => 'collapse' => 'data-target' => '.navbar-collapse' => begin
+	      %= t span => class => 'sr-only' => 'Toggle navigation'
+	      %= t span => class => 'icon-bar'
       %end
 
       %= link_to 'MicroCMS' => '/' => class => 'navbar-brand'
 	    %= link_to 'Help' => '/help' => class => 'navbar-brand'
     %end
   
-    %= tag div => class => 'navbar-collapse collapse' => begin	  
+    %= t div => class => 'navbar-collapse collapse' => begin	  
   	  % if (!session 'email') {
   	    %= form_for '/login' => (method => 'post') => class =>'navbar-form navbar-right' => role => 'form'=> begin 
   	      %= csrf_field
-  	      %= tag div => class => 'form-group' => begin
+  	      %= t div => class => 'form-group' => begin
   		      %= text_field 'email', name => 'email', class => 'form-control', placeholder =>'email'
   	      %end
-  	      %= tag div => class => 'form-group' => begin
+  	      %= t div => class => 'form-group' => begin
   		      %= password_field 'password', name => 'password', class => 'form-control', placeholder =>'password'
   	      %end 
           %= submit_button 'Login', class => 'btn btn-success'
         %end
   	 % } else {
-        %= tag ul => class => 'nav navbar-nav' => begin
+        %= t ul => class => 'nav navbar-nav' => begin
   	      % current_route eq 'index' ?  $self->stash( class => 'active') :  $self->stash( class => '');
   		    <li class="<%= stash 'class' %>" ><a href="/">Home</a></li>
   
@@ -251,7 +251,7 @@ body {
 %end
 
 
-%= tag div => class => 'container' => begin
+%= t div => class => 'container' => begin
   % if ( flash 'failed_message' || stash 'failed_message' ) {
   %= t div => class=> 'alert alert-danger' => begin
 	  %= flash 'failed_message'
@@ -260,13 +260,13 @@ body {
   %}
 
   % if ( flash 'sucess_message' || flash 'sucess_message' ) {
-  %= tag div => class=>'alert alert-success' => begin
+  %= t div => class=>'alert alert-success' => begin
 	  %= flash 'sucess_message'
 	  %= stash 'sucess_message'
   %end
   %}
   
-  %= tag div => class => '' => style => 'margin-top: 20px' => content 
+  %= t div => class => '' => style => 'margin-top: 20px' => content 
 %end
 
 %= stylesheet begin
@@ -277,10 +277,10 @@ body {
   height: 50px;
 % end
 
-%= tag footer => id => 'footer' => class => 'footer navbar-fixed-bottom' => begin
-  %= tag div => class => 'container' => begin
+%= t footer => id => 'footer' => class => 'footer navbar-fixed-bottom' => begin
+  %= t div => class => 'container' => begin
     <br>
-    %= tag p => class => 'text-muted' => begin
+    %= t p => class => 'text-muted' => begin
       © 2017
       %= link_to 'Project GitHub' => 'https://github.com/ovntatar/MicroCMS'
     %end
@@ -296,20 +296,20 @@ body {
 @@ index.html.ep
 % layout 'default';
 
-%= tag h1 => 'MicroCMS'
+%= t h1 => 'MicroCMS'
 
 For demo please use the following details:<br>
 Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 %= stash 'pw'
 <hr>
 
-%= tag div => class => 'panel panel-default' => begin
-  %= tag div => class => 'panel-heading' => 'Message - title'
-  %= tag div => class => 'panel-body' => begin
-    %= tag ul => begin
+%= t div => class => 'panel panel-default' => begin
+  %= t div => class => 'panel-heading' => 'Message - title'
+  %= t div => class => 'panel-body' => begin
+    %= t ul => begin
       % for my $item (@$mesages) {
         % my $item_str = sprintf( '%s - %s', $item->{content}, $item->{email} );
-	      %= tag li => begin
+	      %= t li => begin
           %= $item_str
         % end
 	    %} 
@@ -325,23 +325,23 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 
 <hr>
 
-%= tag table => class => 'table table-striped' => begin
-  %= tag thead => begin
-	  %= tag tr => begin
-	    %= tag th => 'email'
-      %= tag th => 'password'
-	    %= tag th => 'rule'
-	    %= tag th => 'Action'
+%= t table => class => 'table table-striped' => begin
+  %= t thead => begin
+	  %= t tr => begin
+	    %= t th => 'email'
+      %= t th => 'password'
+	    %= t th => 'rule'
+	    %= t th => 'Action'
     % end
   % end
 
-  %= tag tbody => begin
+  %= t tbody => begin
   	% for my $items (@$users) {
-  	  %= tag tr => begin
-  	    %= tag td => $items->{email}
-  	    %= tag td => $items->{password}
-  	    %= tag td => $items->{rule}
-        %= tag td => begin
+  	  %= t tr => begin
+  	    %= t td => $items->{email}
+  	    %= t td => $items->{password}
+  	    %= t td => $items->{rule}
+        %= t td => begin
           %= form_for "delete/$items->{email}" => (method => 'post') => begin
   	        %= csrf_field
   	        %= submit_button 'Delete' => class => 'btn btn-primary btn-sm'
@@ -359,23 +359,23 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 %= link_to 'Add new message' => 'app/addmessage' => class => 'btn btn-primary btn-sm'
 <hr>
 
-%= tag table => class => 'table table-striped' => begin
-  %= tag thead => begin
-	  %= tag tr => begin
-	    %= tag th => 'email'
-	    %= tag th => 'content'
-	    %= tag th => 'date'
-	    %= tag th => 'Action'
+%= t table => class => 'table table-striped' => begin
+  %= t thead => begin
+	  %= t tr => begin
+	    %= t th => 'email'
+	    %= t th => 'content'
+	    %= t th => 'date'
+	    %= t th => 'Action'
     % end
   % end
   
-  %= tag tbody => begin
+  %= t tbody => begin
 	  % for my $item (@$mesages) {
-	    %= tag tr => begin
-	      %= tag td => $item->{email}
-	      %= tag td => $item->{content}
-	      %= tag td => $item->{date}
-	      %= tag td => begin
+	    %= t tr => begin
+	      %= t td => $item->{email}
+	      %= t td => $item->{content}
+	      %= t td => $item->{date}
+	      %= t td => begin
 	        %= form_for "app/delete/$item->{id}" => method => 'post' => begin
 	          %= csrf_field
             %= submit_button 'Delete' => class => 'btn btn-primary btn-sm' => disabled => session->{rule} < 3 ? 'disabled' : ''
@@ -393,29 +393,29 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 <hr>
 %= form_for '/admin/adduser' => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
   %= csrf_field
-  %= tag div => class => 'form-group' => begin
+  %= t div => class => 'form-group' => begin
 	  %= label_for 'inputEmail3' => 'Email' => class => 'col-sm-2 control-label'
-	  %= tag div => class => 'col-sm-10' => begin
+	  %= t div => class => 'col-sm-10' => begin
 	    %= input_tag 'email', type => 'email', class => 'form-control', id => 'inputEmail3',  placeholder => 'Email'
     % end
   % end
 
-  %= tag div => class => 'form-group' => begin
+  %= t div => class => 'form-group' => begin
 	  %= label_for 'inputPassword3' => 'Password' => class => 'col-sm-2 control-label'
-	  %= tag div => class => 'col-sm-10' => begin
+	  %= t div => class => 'col-sm-10' => begin
 	    %= input_tag 'password', type => 'password', class => 'form-control', id => 'inputPassword3', placeholder => 'Password'
     % end
   % end
 
-  %= tag div => class => 'form-group' => begin
+  %= t div => class => 'form-group' => begin
 	  %= label_for 'inputNumber' => 'Rule' => class => 'col-sm-2 control-label'
-	  %= tag div => class => 'col-sm-10' => begin
+	  %= t div => class => 'col-sm-10' => begin
 	    %= input_tag 'rule', type => 'number', class => 'form-control', id => 'inputNumber', placeholder => 'Rule'
     % end
   % end
 
-  %= tag div => class => 'form-group' => begin 
-	  %= tag div => class => 'col-sm-offset-2 col-sm-10' => begin
+  %= t div => class => 'form-group' => begin 
+	  %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
 	    %= submit_button 'Add User' => class => 'btn btn-default'
     % end
   % end
@@ -428,29 +428,29 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 
 %= form_for '/app/addmessage' => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
   %= csrf_field
-  %= tag div => class => "form-group" => begin
+  %= t div => class => "form-group" => begin
 	  %= label_for 'inputEmail3' => 'Email' => class => 'col-sm-2 control-label'
-	  %= tag div => class => 'col-sm-10' => begin
+	  %= t div => class => 'col-sm-10' => begin
       %= input_tag 'email' => session->{email}, type => 'email', class => 'form-control', id => 'inputEmail3', placeholder => 'Email'
     % end
   % end
 
-  %= tag div => class => 'form-group' => begin
+  %= t div => class => 'form-group' => begin
 	  %= label_for 'inputTxt' => 'Message' => class => 'col-sm-2 control-label'
-	  %= tag div => class => 'col-sm-10' => begin
+	  %= t div => class => 'col-sm-10' => begin
 	    %= input_tag 'message', type => 'text', class => 'form-control', id => 'inputTxt', placeholder => 'Message'
     % end
   % end
 	
-  %= tag div => class=> 'form-group' => begin
+  %= t div => class=> 'form-group' => begin
 	  %= label_for 'inputDatetime' => 'Datetime' => class => 'col-sm-2 control-label'
-	  %= tag div => class => 'col-sm-10' => begin
+	  %= t div => class => 'col-sm-10' => begin
 	    %= input_tag 'date' => stash->{date}, type => "text",  class => 'form-control', id => 'inputDatetime', placeholder => 'Datetime'
     % end
   % end
 
-  %= tag div => class => 'form-group' => begin
-	  %= tag div => class => 'col-sm-offset-2 col-sm-10' => begin
+  %= t div => class => 'form-group' => begin
+	  %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
       %= submit_button 'Add Message' => class => 'btn btn-default'
     % end
   % end 
@@ -461,7 +461,7 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 
 %= t h3 => 'Help'
 
-%= tag p => 'Mojolicious lite and bootstrap based simple cms'
+%= t p => 'Mojolicious lite and bootstrap based simple cms'
 <b>Requirements</b>
 <ul>
   <li>perl 5.10 to higher
