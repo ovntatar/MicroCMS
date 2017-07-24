@@ -30,17 +30,15 @@ use ORLite {
 };
 
 sub get_users {
-    return Model->selectall_arrayref( 'SELECT * from user', { Slice => {} }, );
+    return Model->selectall_arrayref('SELECT * from user', { Slice => {} },);
 }
 
 sub get_rule {
-    return Model->selectall_arrayref( 'SELECT rule from user where email = ?',
-        { Slice => {} }, $_[0], );
+    return Model->selectall_arrayref('SELECT rule from user where email = ?', { Slice => {} }, $_[0],);
 }
 
 sub get_messages {
-    return Model->selectall_arrayref( 'SELECT * from entries', { Slice => {} },
-    );
+    return Model->selectall_arrayref('SELECT * from entries', { Slice => {} },);
 }
 
 package main;
@@ -55,14 +53,12 @@ use Mojo::Date;
 helper auth => sub {
     my $self     = shift;
     my $email    = $self->param('email');
-    my $password = b( $self->param('password') )->md5_sum;
+    my $password = b($self->param('password'))->md5_sum;
 
-    if ( Model::User->count( 'WHERE email=? AND password=?', $email, $password )
-        == 1 )
-    {
+    if (Model::User->count('WHERE email=? AND password=?', $email, $password) == 1) {
         my $rule = Model::get_rule($email);
-        $self->session( rule  => $rule->[0]->{rule} );
-        $self->session( email => $email );
+        $self->session(rule  => $rule->[0]->{rule});
+        $self->session(email => $email);
         return 1;
     }
     else {
@@ -73,21 +69,21 @@ helper auth => sub {
 helper check_token => sub {
     my $self       = shift;
     my $validation = $self->validation;
-    return $self->render( text => 'Bad CSRF token!', status => 403 )
-      if $validation->csrf_protect->has_error('csrf_token');
+    return $self->render(text => 'Bad CSRF token!', status => 403)
+        if $validation->csrf_protect->has_error('csrf_token');
 };
 
 get '/' => sub {
     my $self    = shift;
     my $mesages = Model::get_messages();
-    $self->stash( mesages => $mesages );
+    $self->stash(mesages => $mesages);
 } => 'index';
 
 get '/help' => 'help';
 
 get '/logout' => sub {
     my $self = shift;
-    $self->session( expires => 1 );
+    $self->session(expires => 1);
     $self->redirect_to('/');
 };
 
@@ -95,27 +91,27 @@ under sub {
     my $self = shift;
     return 1 if $self->auth;
     return 1 if $self->session("email");
-    $self->flash( failed_message => 'Access Denied!' );
+    $self->flash(failed_message => 'Access Denied!');
     $self->redirect_to('/');
 };
 
 post '/login' => sub {
     my $self = shift;
     return if $self->check_token;
-    $self->flash( sucess_message => 'Wellcome!' );
+    $self->flash(sucess_message => 'Wellcome!');
     $self->redirect_to('/');
 };
 
 get '/app/addmessage' => sub {
     my $self = shift;
     my $date = Mojo::Date->new(time);
-    $self->stash( date => $date );
+    $self->stash(date => $date);
 } => 'addmessage';
 
 get '/app' => sub {
     my $self    = shift;
     my $mesages = Model::get_messages();
-    $self->stash( mesages => $mesages );
+    $self->stash(mesages => $mesages);
 } => 'app';
 
 post '/app/addmessage' => sub {
@@ -127,7 +123,7 @@ post '/app/addmessage' => sub {
         content => $self->param('message'),
         date    => $self->param('date'),
     );
-    $self->flash( sucess_message => 'Create message sucessfull!' );
+    $self->flash(sucess_message => 'Create message sucessfull!');
     $self->redirect_to('/app');
 };
 
@@ -135,25 +131,25 @@ post '/app/delete/*id' => => sub {
     my $self = shift;
     return if $self->check_token;
     my $id = $self->stash('id');
-    Model::Entries->delete_where( 'id=?', $id );
+    Model::Entries->delete_where('id=?', $id);
     my $mesages = Model::get_messages();
-    $self->stash( mesages => $mesages );
-    $self->flash( sucess_message => "Message sucessfull deleted!" );
+    $self->stash(mesages => $mesages);
+    $self->flash(sucess_message => "Message sucessfull deleted!");
     $self->redirect_to('/app');
 };
 
 under sub {
     my $self = shift;
     return 1 if $self->session("rule") == 3;
-    $self->flash( failed_message => 'Permission denied!' );
-    $self->render( 'index', status => '403' );
+    $self->flash(failed_message => 'Permission denied!');
+    $self->render('index', status => '403');
     return undef;
 };
 
 get '/admin/users' => sub {
     my $self  = shift;
     my $users = Model::get_users();
-    $self->stash( users => $users );
+    $self->stash(users => $users);
 };
 
 get '/admin/adduser'        => 'adduser';
@@ -161,327 +157,324 @@ post '/admin/delete/*email' => => sub {
     my $self = shift;
     return if $self->check_token;
     my $email = $self->stash('email');
-    Model::User->delete_where( 'email=?', $email );
+    Model::User->delete_where('email=?', $email);
     my $users = Model::get_users();
-    $self->stash( users => $users );
-    $self->flash(
-        sucess_message => "User with the mail $email sucessfull deleted!" );
+    $self->stash(users => $users);
+    $self->flash(sucess_message => "User with the mail $email sucessfull deleted!");
     $self->redirect_to('/admin/users');
 };
 post '/admin/adduser' => sub {
     my $self = shift;
     return if $self->check_token;
 
-    if ( Model::User->count( 'WHERE email=?', $self->param('email') ) == 1 ) {
-        $self->flash(
-            failed_message => 'Duplicate email found! Can not create user!' );
+    if (Model::User->count('WHERE email=?', $self->param('email')) == 1) {
+        $self->flash(failed_message => 'Duplicate email found! Can not create user!');
         $self->redirect_to('/admin/users');
         return;
     }
     Model::User->create(
         email    => $self->param('email'),
-        password => b( $self->param('password') )->md5_sum,
+        password => b($self->param('password'))->md5_sum,
         rule     => $self->param('rule'),
     );
-    $self->flash( sucess_message => 'Create user sucessfull!' );
+    $self->flash(sucess_message => 'Create user sucessfull!');
     $self->redirect_to('/admin/users');
 };
 
 app->start;
 
 __DATA__
-@@ default.html.ep
+@@ layouts/default.html.ep
 
 <!DOCTYPE html>
 <html lang="en">
-% content_for header => begin
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="">
-  <meta name="author" content="">
+%= tag header => begin
+  %= tag meta => charset => 'utf-8'
+  %= tag meta => name => 'viewport'  => content=>'width=device-width, initial-scale=1.0'
+  %= tag meta => name => 'description' => content=>''
+  %= tag meta => name=> 'author' => content=>''
 %end
 %= stylesheet '//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css'
 %= stylesheet begin
 body {
   padding-top: 50px;
   padding-bottom: 20px;
- }
+}
 %end
+
 <body>
 %= tag div => class => 'navbar navbar-inverse navbar-fixed-top' => role =>'navigation' => begin
- %= tag div => class => 'container' => begin
-  %= tag div => class => 'navbar-header' => begin
-	<button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-	<span class="sr-only">Toggle navigation</span>
-	<span class="icon-bar"></span>
-	</button>
-	<a class="navbar-brand" href="/">MicroCMS</a>
-	<a class="navbar-brand" href="/help">Help</a>
-  %end
-  %= tag div => class => 'navbar-collapse collapse' => begin	  
-	 % if (!session 'email') {
-	 %= form_for '/login' => (method => 'post') => class =>'navbar-form navbar-right' => role => 'form'=> begin 
-	  %= csrf_field
-	  %= tag div => class => 'form-group' => begin
-		%= text_field 'email', name => 'email', class => 'form-control', placeholder =>'email'
-	  %end
-	  %= tag div => class => 'form-group' => begin
-		%= password_field 'password', name => 'password', class => 'form-control', placeholder =>'password'
-	  %end 
-		<button class="btn btn-success" type="submit">Login</button>
-	 %end
-	 % } else {
-	  <ul class="nav navbar-nav">
-	  % if (current_route 'index') { $self->stash( class => 'active') } else { $self->stash( class => '') }
-		<li class="<%= stash 'class' %>" ><a href="/">Home</a></li>
-	  % if ( (session 'rule') > 2 ) {
-	  % if (current_route 'users') { $self->stash( class => 'active') } else { $self->stash( class => '') }
-		<li class="<%= stash 'class' %>" ><a href="/admin/users">Admin</a></li>
-	  %}
-	  % if (current_route 'app') { $self->stash( class => 'active') } else { $self->stash( class => '') }
-		<li class="<%= stash 'class' %>" ><a href="/app">App</a></li>
-      </ul>
-		%= form_for '/logout' => (method => 'get') => class =>'navbar-form navbar-right' => begin
-		<button class="btn btn-success" type="submit">Logout <%= session 'email' %> </button>
-		%end
-	 %}
-	 
+  %= tag div => class => 'container' => begin
+    %= tag div => class => 'navbar-header test111' => begin
+	    %= tag button => type=>'button' => class=> 'navbar-toggle' => 'data-toggle' => 'collapse' => 'data-target' => '.navbar-collapse' => begin
+	      %= tag span => class => 'sr-only' => 'Toggle navigation'
+	      %= tag span => class => 'icon-bar'
+      %end
+
+      %= link_to 'MicroCMS' => '/' => class => 'navbar-brand'
+	    %= link_to 'Help' => '/help' => class => 'navbar-brand'
+    %end
+  
+    %= tag div => class => 'navbar-collapse collapse' => begin	  
+  	  % if (!session 'email') {
+  	    %= form_for '/login' => (method => 'post') => class =>'navbar-form navbar-right' => role => 'form'=> begin 
+  	      %= csrf_field
+  	      %= tag div => class => 'form-group' => begin
+  		      %= text_field 'email', name => 'email', class => 'form-control', placeholder =>'email'
+  	      %end
+  	      %= tag div => class => 'form-group' => begin
+  		      %= password_field 'password', name => 'password', class => 'form-control', placeholder =>'password'
+  	      %end 
+          %= submit_button 'Login', class => 'btn btn-success'
+        %end
+  	 % } else {
+        %= tag ul => class => 'nav navbar-nav' => begin
+  	      % current_route eq 'index' ?  $self->stash( class => 'active') :  $self->stash( class => '');
+  		    <li class="<%= stash 'class' %>" ><a href="/">Home</a></li>
+  
+          % if ( (session 'rule') > 2 ) {
+  	        % current_route eq 'adminusers' ? $self->stash( class => 'active') : $self->stash( class => '');
+  		      <li class="<%= stash 'class' %>" ><a href="/admin/users">Admin</a></li>
+  	      %}
+  	  
+          % current_route eq 'app' ? $self->stash( class => 'active') : $self->stash( class => '');
+  		    <li class="<%= stash 'class' %>" ><a href="/app">App</a></li>
+        %end
+  		
+        %= form_for '/logout' => method => 'get' => class =>'navbar-form navbar-right' => begin
+          % my $text = 'Logout ' . session 'email'; 
+          %= submit_button $text => class => 'btn btn-success'
+  		  %end
+  	 %}
+    %end
   %end
 %end
-%end
+
+
 %= tag div => class => 'container' => begin
-  %= tag h1 => 'MicroCMS'
+  % if ( flash 'failed_message' || stash 'failed_message' ) {
+  %= t div => class=> 'alert alert-danger' => begin
+	  %= flash 'failed_message'
+	  %= stash 'failed_message'
+  %end
+  %}
+
+  % if ( flash 'sucess_message' || flash 'sucess_message' ) {
+  %= tag div => class=>'alert alert-success' => begin
+	  %= flash 'sucess_message'
+	  %= stash 'sucess_message'
+  %end
+  %}
+  
+  %= tag div => class => '' => style => 'margin-top: 20px' => content 
 %end
-<div class="container">
 
-% if ( flash 'failed_message' || stash 'failed_message' ) {
-<div class="alert alert-danger">
-	%= flash 'failed_message'
-	%= stash 'failed_message'
-</div>
-%}
-
-% if ( flash 'sucess_message' || flash 'sucess_message' ) {
-<div class="alert alert-success">
-	%= flash 'sucess_message'
-	%= stash 'sucess_message'
-</div>
-% }
-
-%= content 
-
-@@ footer.html.ep
-
-<style>
-
+%= stylesheet begin
 .footer {
   bottom: 0;
   width: 100%;
   background-color: #000000;
   height: 50px;
-}
+% end
 
-</style>
-</div>
-</div>
-
-     <footer id="footer"  class="footer navbar-fixed-bottom"> 
-      <div class="container">
-        <br>
-        <p class="text-muted"><a href="https://github.com/ovntatar/MicroCMS">Project Page</a></p>
-      </div>
-
-</footer>
+%= tag footer => id => 'footer' => class => 'footer navbar-fixed-bottom' => begin
+  %= tag div => class => 'container' => begin
+    <br>
+    %= tag p => class => 'text-muted' => begin
+      © 2017
+      %= link_to 'Project GitHub' => 'https://github.com/ovntatar/MicroCMS'
+    %end
+  %end
+%end
 
 %= javascript '//netdna.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js'
 </body>
 </html>
 
 
+
 @@ index.html.ep
-%= include 'default';
+% layout 'default';
+
+%= tag h1 => 'MicroCMS'
 
 For demo please use the following details:<br>
 Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 %= stash 'pw'
 <hr>
-<div class="panel panel-default">
-  <div class="panel-heading">Message - title</div>
-  <div class="panel-body">
-  <ul>
-    % for my $items (@$mesages) {
-	  <li><%=$items->{content}%> - <%=$items->{email}%> </li>
-	 %} 
-  </ul>
-  </div>
-</div>
-%= include 'footer';
+
+%= tag div => class => 'panel panel-default' => begin
+  %= tag div => class => 'panel-heading' => 'Message - title'
+  %= tag div => class => 'panel-body' => begin
+    %= tag ul => begin
+      % for my $item (@$mesages) {
+        % my $item_str = sprintf( '%s - %s', $item->{content}, $item->{email} );
+	      %= tag li => begin
+          %= $item_str
+        % end
+	    %} 
+    % end
+  % end
+% end
 
 
 @@ adminusers.html.ep
-%= include 'default';
+% layout 'default';
 
-<a href="adduser"><button type="button" class="btn btn-primary btn-sm">Add new user</button></a>
+%= link_to 'Add new user' => 'adduser' => class => 'btn btn-sm btn-primary'
+
 <hr>
-<table class="table table-striped">
-  <thead>
-	<tr>
-	<th>email</th>
-	<th>password</th>
-	<th>rule</th>
-	<th>Action</th>
-	</tr>
-  </thead>
-  <tbody>
-	% for my $items (@$users) {
-	  <tr>
-	  <td> <%=$items->{email}%> </td>
-	  <td> <%=$items->{password}%></td>
-	  <td> <%=$items->{rule}%></td>
-	  <td>
-	  %= form_for "delete/$items->{email}" => (method => 'post') => begin
-	  %= csrf_field
-	  <button type="submit" class="btn btn-primary btn-sm" >Delete</button>
-	  %end 
-	  </td>  
-	  </tr>
-	% }
-  </tbody>
-</table>
 
-%= include 'footer';
+%= tag table => class => 'table table-striped' => begin
+  %= tag thead => begin
+	  %= tag tr => begin
+	    %= tag th => 'email'
+      %= tag th => 'password'
+	    %= tag th => 'rule'
+	    %= tag th => 'Action'
+    % end
+  % end
+
+  %= tag tbody => begin
+  	% for my $items (@$users) {
+  	  %= tag tr => begin
+  	    %= tag td => $items->{email}
+  	    %= tag td => $items->{password}
+  	    %= tag td => $items->{rule}
+        %= tag td => begin
+          %= form_for "delete/$items->{email}" => (method => 'post') => begin
+  	        %= csrf_field
+  	        %= submit_button 'Delete' => class => 'btn btn-primary btn-sm'
+  	      %end 
+        % end
+      % end
+  	%}
+  % end
+% end
+
 
 @@ app.html.ep
-%= include 'default';
+% layout 'default';
 
-<a href="app/addmessage"><button type="button" class="btn btn-primary btn-sm">Add new message</button></a>
+%= link_to 'Add new message' => 'app/addmessage' => class => 'btn btn-primary btn-sm'
 <hr>
-<table class="table table-striped">
-  <thead>
-	<tr>
-	<th>email</th>
-	<th>content</th>
-	<th>date</th>
-	<th>Action</th>
-	</tr>
-  </thead>
-  <tbody>
-	% for my $items (@$mesages) {
-	  <tr>
-	  <td> <%=$items->{email}%> </td>
-	  <td> <%=$items->{content}%></td>
-	  <td> <%=$items->{date}%></td>
-	  <td>
-	  %= form_for "app/delete/$items->{id}" => (method => 'post') => begin
-	  %= csrf_field
-	  <button type="submit" class="btn btn-primary btn-sm" 
-	  % if ( (session 'rule') < 3 ) {
-		disabled="disabled" 
-      %}
-      >Delete</button></td>
-	  
-	  %end 
-	  </td>  
-	  </tr>
-	% }
-  </tbody>
-</table>
 
-%= include 'footer';
+%= tag table => class => 'table table-striped' => begin
+  %= tag thead => begin
+	  %= tag tr => begin
+	    %= tag th => 'email'
+	    %= tag th => 'content'
+	    %= tag th => 'date'
+	    %= tag th => 'Action'
+    % end
+  % end
+  
+  %= tag tbody => begin
+	  % for my $item (@$mesages) {
+	    %= tag tr => begin
+	      %= tag td => $item->{email}
+	      %= tag td => $item->{content}
+	      %= tag td => $item->{date}
+	      %= tag td => begin
+	        %= form_for "app/delete/$item->{id}" => method => 'post' => begin
+	          %= csrf_field
+            %= submit_button 'Delete' => class => 'btn btn-primary btn-sm' => disabled => session->{rule} < 3 ? 'disabled' : ''
+          % end
+	      % end 
+	    % end 
+	  %}
+	% end 
+% end
 
 @@ adduser.html.ep
-%= include 'default';
+% layout 'default';
+
 %= t h3 => 'Add User'
+<hr>
+%= form_for '/admin/adduser' => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+  %= csrf_field
+  %= tag div => class => 'form-group' => begin
+	  %= label_for 'inputEmail3' => 'Email' => class => 'col-sm-2 control-label'
+	  %= tag div => class => 'col-sm-10' => begin
+	    %= input_tag 'email', type => 'email', class => 'form-control', id => 'inputEmail3',  placeholder => 'Email'
+    % end
+  % end
 
-%= form_for '/admin/adduser' => (method => 'post') => class =>'form-horizontal' => role => 'form'=> begin
-%= csrf_field
-  <div class="form-group">
-	<label for="inputEmail3" class="col-sm-2 control-label">Email</label>
-	<div class="col-sm-10">
-	<input type="email" name="email" class="form-control" id="inputEmail3" placeholder="Email">
-	</div>
-  </div>
-  <div class="form-group">
-	<label for="inputPassword3" class="col-sm-2 control-label">Password</label>
-	<div class="col-sm-10">
-	<input type="password" name="password" class="form-control"  id="inputPassword3" placeholder="Password">
-	</div>
-  </div>
-	
-  <div class="form-group">
-	<label for="inputNumber" class="col-sm-2 control-label">Rule</label>
-	<div class="col-sm-10">
-	<input type="number" name="rule" class="form-control"  id="inputNumber" placeholder="Rule">
-	</div>
-  </div>
-  <div class="form-group">
-	<div class="col-sm-offset-2 col-sm-10">
-	<button type="submit" class="btn btn-default">Add User</button>
-	</div>
-  </div>
+  %= tag div => class => 'form-group' => begin
+	  %= label_for 'inputPassword3' => 'Password' => class => 'col-sm-2 control-label'
+	  %= tag div => class => 'col-sm-10' => begin
+	    %= input_tag 'password', type => 'password', class => 'form-control', id => 'inputPassword3', placeholder => 'Password'
+    % end
+  % end
+
+  %= tag div => class => 'form-group' => begin
+	  %= label_for 'inputNumber' => 'Rule' => class => 'col-sm-2 control-label'
+	  %= tag div => class => 'col-sm-10' => begin
+	    %= input_tag 'rule', type => 'number', class => 'form-control', id => 'inputNumber', placeholder => 'Rule'
+    % end
+  % end
+
+  %= tag div => class => 'form-group' => begin 
+	  %= tag div => class => 'col-sm-offset-2 col-sm-10' => begin
+	    %= submit_button 'Add User' => class => 'btn btn-default'
+    % end
+  % end
 %end
-
-%= include 'footer';
-
-
 
 @@ addmessage.html.ep
-%= include 'default';
-%= t h3 => 'Add User'
+% layout 'default';
 
-%= form_for '/app/addmessage' => (method => 'post') => class =>'form-horizontal' => role => 'form'=> begin
-%= csrf_field
-  <div class="form-group">
-	<label for="inputEmail3" class="col-sm-2 control-label">Email</label>
-	<div class="col-sm-10">
-	<input type="email" name="email" value="<%= session 'email' %>" class="form-control" id="inputEmail3" placeholder="Email">
-	</div>
-  </div>
-  <div class="form-group">
-	<label for="inputTxt" class="col-sm-2 control-label">Message</label>
-	<div class="col-sm-10">
-	<input type="txt" name="message" class="form-control"  id="inputTxt" placeholder="Message">
-	</div>
-  </div>
+%= t h3 => 'Add Message'
+
+%= form_for '/app/addmessage' => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+  %= csrf_field
+  %= tag div => class => "form-group" => begin
+	  %= label_for 'inputEmail3' => 'Email' => class => 'col-sm-2 control-label'
+	  %= tag div => class => 'col-sm-10' => begin
+      %= input_tag 'email' => session->{email}, type => 'email', class => 'form-control', id => 'inputEmail3', placeholder => 'Email'
+    % end
+  % end
+
+  %= tag div => class => 'form-group' => begin
+	  %= label_for 'inputTxt' => 'Message' => class => 'col-sm-2 control-label'
+	  %= tag div => class => 'col-sm-10' => begin
+	    %= input_tag 'message', type => 'text', class => 'form-control', id => 'inputTxt', placeholder => 'Message'
+    % end
+  % end
 	
-  <div class="form-group">
-	<label for="inputDatetime" class="col-sm-2 control-label">Datetime</label>
-	<div class="col-sm-10">
-	<input type="txt" name="date" value="<%= stash 'date' %>" class="form-control"  id="inputDatetime" placeholder="Datetime">
-	</div>
-  </div>
-  <div class="form-group">
-	<div class="col-sm-offset-2 col-sm-10">
-	<button type="submit" class="btn btn-default">Add Message</button>
-	</div>
-  </div>
+  %= tag div => class=> 'form-group' => begin
+	  %= label_for 'inputDatetime' => 'Datetime' => class => 'col-sm-2 control-label'
+	  %= tag div => class => 'col-sm-10' => begin
+	    %= input_tag 'date' => stash->{date}, type => "text",  class => 'form-control', id => 'inputDatetime', placeholder => 'Datetime'
+    % end
+  % end
+
+  %= tag div => class => 'form-group' => begin
+	  %= tag div => class => 'col-sm-offset-2 col-sm-10' => begin
+      %= submit_button 'Add Message' => class => 'btn btn-default'
+    % end
+  % end 
 %end
 
-%= include 'footer';
-
-
 @@ help.html.ep
-%= include 'default';
+% layout 'default';
+
 %= t h3 => 'Help'
 
-<p>Mojolicious lite and bootstrap based simple cms</p>
-
+%= tag p => 'Mojolicious lite and bootstrap based simple cms'
 <b>Requirements</b>
 <ul>
-<li>perl 5.10 to higher
-<li>Mojolicious (4.62, Top Hat)
+  <li>perl 5.10 to higher
+  <li>Mojolicious (4.62, Top Hat)
 </ul>
 
 <b>Install & Start dev Server</b>
 <ul>
-<li>$ curl -L https://cpanmin.us | perl - --sudo App::cpanminus.</li>
-<li>$ cpanm ORLite.pm</li>
-<li>$ cpanm Mojolicious</li>
-<li>$ git clone https://github.com/ovntatar/MicroCMS.git</li>
-<li>$ cd MicroCMS</li>
-<li>$ morbo MicroCMS.pl</li>
+  <li>$ curl -L https://cpanmin.us | perl - --sudo App::cpanminus.</li>
+  <li>$ cpanm ORLite.pm</li>
+  <li>$ cpanm Mojolicious</li>
+  <li>$ git clone https://github.com/ovntatar/MicroCMS.git</li>
+  <li>$ cd MicroCMS</li>
+  <li>$ morbo MicroCMS.pl</li>
 </ul>
-
-%= include 'footer';
-
 
