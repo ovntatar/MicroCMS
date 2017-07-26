@@ -56,7 +56,7 @@ use Data::Dumper;
 helper do_auth_login_fail => sub {
     my ( $self, $user ) = @_;
     $self->flash( user          => $user );
-    $self->flash( error_message => 'Wrong auth codes!' );
+    $self->flash( failed_message => 'Wrong auth codes!' );
     return $self->redirect_to('/login/auth');
 };
 
@@ -86,6 +86,8 @@ helper auth => sub {
         }
     }
     else {
+        $self->flash( failed_message => 'Wrong email or password!' );
+        $self->redirect_to( '/' );
         return;
     }
 };
