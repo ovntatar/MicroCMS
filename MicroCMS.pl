@@ -11,6 +11,7 @@ use ORLite {
             'CREATE TABLE user 
 				(email   TEXT NOT NULL UNIQUE PRIMARY KEY,
 				password TEXT NOT NULL,
+                fac_auth TEXT NOT NULL DEFAULT "NO",
 				token TEXT NOT NULL,
 				rule     TEXT);'
         );
@@ -38,6 +39,14 @@ sub get_user {
     return Model->selectrow_hashref( 'SELECT * from user where email = ?', { Slice => {} }, $_[0] );
 }
 
+sub update_user {
+    my $data = shift;
+    my $user = Model::get_user( $data->{email} );
+    return unless $user;
+
+    __PACKAGE__->do( 'UPDATE user SET password = ?, fac_auth = ?, token = ?, rule = ? WHERE email = ?', {}, $data->{password}, $data->{fac_auth}, $data->{token}, $data->{rule}, $data->{email} );
+}
+
 sub get_messages {
     return Model->selectall_arrayref( 'SELECT * from entries', { Slice => {} } );
 }
@@ -55,7 +64,7 @@ use Data::Dumper;
 
 helper do_auth_login_fail => sub {
     my ( $self, $user ) = @_;
-    $self->flash( user          => $user );
+    $self->flash( user           => $user );
     $self->flash( failed_message => 'Wrong auth codes!' );
     return $self->redirect_to('/login/auth');
 };
@@ -87,7 +96,7 @@ helper auth => sub {
     }
     else {
         $self->flash( failed_message => 'Wrong email or password!' );
-        $self->redirect_to( '/' );
+        $self->redirect_to('/');
         return;
     }
 };
@@ -198,8 +207,57 @@ get '/admin/users' => sub {
     my $users = Model::get_users();
     $self->stash( users => $users );
 };
+get '/admin/user/edit/*email' => sub {
+    my $self  = shift;
+    my $email = $self->stash('email');
+    my $user  = Model::get_user($email);
+    unless ($user) {
+        $self->flash( failed_message => sprintf 'User: %s not found', $email );
+        return $self->redirect_to('/admin/users');
+    }
+    $self->stash( user => $user );
+} => 'edituser';
+
+post '/admin/user/edit/*email_org' => sub {
+    my $self      = shift;
+    my $email_org = $self->param('email_org');
+    my $email     = $self->param('email');
+    return $self->redirect_to('/admin/users') unless $email_org eq $email;
+
+    my $user = Model::get_user($email);
+    unless ($user) {
+        $self->flash( failed_message => 'User not found' );
+        return $self->redirect_to('/admin/users');
+    }
+
+    my $password = b( $self->param('password') )->md5_sum, my $rule = $self->param('rule'), my $fac_auth = $self->param('fac_auth');
+    my $token = $self->param('token');
+    if ( lc($fac_auth) eq 'YES' and not $token ) {
+        $self->falsh( failed_message => 'No token set' );
+        $self->stash( user => $user );
+        return $self->redirect_to("/admin/user/edit/$email");
+    }
+
+    Model::update_user(
+        {   email    => $email,
+            password => $password,
+            rule     => $rule,
+            fac_auth => $fac_auth,
+            token    => $token,
+        }
+    );
+    return $self->redirect_to('/admin/users');
+};
+
+get '/admin/user/get_token' => sub {
+    my $self  = shift;
+    my $auth  = Auth::GoogleAuth->new;
+    my $token = $auth->generate_secret32;
+    $self->render( text => $token );
+} => 'get_token';
 
 get '/admin/adduser'        => 'adduser';
+
 post '/admin/delete/*email' => => sub {
     my $self = shift;
     return if $self->check_token;
@@ -210,6 +268,7 @@ post '/admin/delete/*email' => => sub {
     $self->flash( sucess_message => "User with the mail $email sucessfull deleted!" );
     $self->redirect_to('/admin/users');
 };
+
 post '/admin/adduser' => sub {
     my $self = shift;
     return if $self->check_token;
@@ -242,6 +301,7 @@ __DATA__
   %= t meta => name=> 'author' => content=>''
 %end
 %= stylesheet '//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css'
+%= javascript '//ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'
 %= stylesheet begin
 body {
   padding-top: 50px;
@@ -377,6 +437,7 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 	  %= t tr => begin
 	  %= t th => 'Email'
       %= t th => 'Password'
+      %= t th => '2FacAuth'
       %= t th => 'Token'
 	  %= t th => 'Rule'
 	  %= t th => 'Action'
@@ -388,9 +449,17 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
   	  %= t tr => begin
   	    %= t td => $items->{email}
   	    %= t td => $items->{password}
+  	    %= t td => begin
+            % if ( lc( $items->{fac_auth} ) eq 'yes' ){
+                %= t span => class => 'label label-success' => 'Enable'
+            % } else {
+                %= t span => class => 'label label-default' => 'Disable'
+            % }
+        % end
   	    %= t td => $items->{token}
   	    %= t td => $items->{rule}
         %= t td => begin
+  	      %= link_to 'Edit' => "/admin/user/edit/$items->{email}" => class => 'btn btn-warning btn-sm' 
           %= form_for "delete/$items->{email}" => (method => 'post') => begin
   	        %= csrf_field
   	        %= submit_button 'Delete' => class => 'btn btn-primary btn-sm'
@@ -402,12 +471,30 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 % end
 
 
+@@ edituser.html.ep
+% layout 'default';
+
+%= t h3 => 'Edit User'
+<hr>
+%= form_for "/admin/user/edit/$user->{email}" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+%= include '_user_form'
+
+%= t div => class => 'form-group' => begin 
+    %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
+      %= submit_button 'Update' => class => 'btn btn-default btn-primary'
+  % end
+% end
+
+%end
+
+
 @@ app.html.ep
 % layout 'default';
 
 %= link_to 'Add new message' => 'app/addmessage' => class => 'btn btn-primary btn-sm'
 <hr>
 
+% if ( $mesages ) {
 %= t table => class => 'table table-striped' => begin
   %= t thead => begin
 	  %= t tr => begin
@@ -434,6 +521,7 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 	  %}
 	% end 
 % end
+% }
 
 @@ adduser.html.ep
 % layout 'default';
@@ -441,42 +529,86 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 %= t h3 => 'Add User'
 <hr>
 %= form_for '/admin/adduser' => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
-  %= csrf_field
-  %= t div => class => 'form-group' => begin
-	  %= label_for 'inputEmail3' => 'Email' => class => 'col-sm-2 control-label'
-	  %= t div => class => 'col-sm-10' => begin
-	    %= input_tag 'email', type => 'email', class => 'form-control', id => 'inputEmail3',  placeholder => 'Email'
-    % end
-  % end
+%= include '_user_form'
 
-  %= t div => class => 'form-group' => begin
-	  %= label_for 'inputPassword3' => 'Password' => class => 'col-sm-2 control-label'
-	  %= t div => class => 'col-sm-10' => begin
-	    %= input_tag 'password', type => 'password', class => 'form-control', id => 'inputPassword3', placeholder => 'Password'
-    % end
+%= t div => class => 'form-group' => begin 
+    %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
+      %= submit_button 'Add User' => class => 'btn btn-default'
   % end
-
-  %= t div => class => 'form-group' => begin
-	  %= label_for 'inputtoken' => 'Token' => class => 'col-sm-2 control-label'
-	  %= t div => class => 'col-sm-10' => begin
-	    %= input_tag 'token', type => 'text', class => 'form-control', id => 'inputtoken', placeholder => 'token'
-    % end
-  % end
-
-
-  %= t div => class => 'form-group' => begin
-	  %= label_for 'inputNumber' => 'Rule' => class => 'col-sm-2 control-label'
-	  %= t div => class => 'col-sm-10' => begin
-	    %= input_tag 'rule', type => 'number', class => 'form-control', id => 'inputNumber', placeholder => 'Rule'
-    % end
-  % end
-
-  %= t div => class => 'form-group' => begin 
-	  %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
-	    %= submit_button 'Add User' => class => 'btn btn-default'
-    % end
-  % end
+% end
 %end
+
+
+@@ _user_form.html.ep
+%= csrf_field
+%= t div => class => 'form-group' => begin
+    %= label_for 'inputEmail3' => 'Email' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-10' => begin
+      %= input_tag 'email', type => 'email', class => 'form-control', id => 'inputEmail3',  placeholder => 'Email', value => "$user->{email}"
+  % end
+% end
+
+%= t div => class => 'form-group' => begin
+    %= label_for 'inputPassword3' => 'Password' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-10' => begin
+      %= input_tag 'password', type => 'password', class => 'form-control', id => 'inputPassword3', placeholder => 'Password', value => "$user->{password}"
+  % end
+% end
+
+%= t div => class => 'form-group' => begin
+    %= label_for 'token_flag' => '2FacAuth' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-10' => begin
+      % if ( $user->{fac_auth} eq 'YES' ) {
+        %= radio_button fac_auth => 'YES', checked => 1
+      % } else {
+        %= radio_button fac_auth => 'YES', 
+      % }
+      Enable
+
+      % if ( $user->{fac_auth} eq 'NO' ) {
+        %= radio_button fac_auth => 'NO', checked => 1
+      % } else {
+        %= radio_button fac_auth => 'NO'
+      % }
+      Disable
+  % end
+% end
+
+%= t div => class => 'form-group' => begin
+    %= label_for 'inputtoken' => 'Token' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-10' => begin
+      %= input_tag 'token', type => 'text', class => 'form-control', id => 'inputtoken', placeholder => 'token', value => "$user->{token}"
+  % end
+% end
+
+
+%= t div => class => 'form-group' => begin
+    %= label_for 'inputNumber' => 'Rule' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-10' => begin
+      %= input_tag 'rule', type => 'number', class => 'form-control', id => 'inputNumber', placeholder => 'Rule', value => "$user->{rule}"
+  % end
+% end
+
+%= javascript begin
+$('document').ready( function() {
+    $("input[name='fac_auth']").click( function(){
+        if ( this.value == 'NO' ) {
+            $("#inputtoken").val('');
+        } else {
+            var email = $("input[name='email']").val();
+            $.ajax( {
+                url: '/admin/user/get_token',
+                success: function(token) {
+                    $("#inputtoken").val( token );
+                },
+                error: function() {
+                    alert( 'Get new 2FacAuth token fail!' );
+                }
+            })
+        }
+    });
+});
+% end
 
 @@ addmessage.html.ep
 % layout 'default';
@@ -556,3 +688,11 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
   % end 
 %end
 
+687:	final indentation level: 1
+
+Final nesting depth of '('s is 1
+The most recent un-matched '(' is on line 44
+44: my $user = __PACKAGE__->get_user( $data->{email};
+                                    ^
+687:	To see 2 non-critical warnings rerun with -w
+687:	To save a full .LOG file rerun with -g
