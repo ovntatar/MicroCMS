@@ -23,10 +23,27 @@ use ORLite {
 				content TEXT NOT NULL, 
 				date TEXT NOT NULL);'
         );
+
+        $dbh->do(
+            'CREATE TABLE page
+            ( id INTEGER NOT NULL PRIMARY KEY ASC AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            can_show INTEGER NOT NULL DEFAULT 0); '
+        );
+
         $dbh->do(
             'INSERT INTO user 
-				(email, password, token, rule) 
-				VALUES("admin@myproject.com","21232f297a57a5a743894a0e4a801fc3", "","3");'
+				(email, password, fac_auth, token, rule) 
+				VALUES("admin@myproject.com","21232f297a57a5a743894a0e4a801fc3", "NO", "","3");'
+        );
+
+        $dbh->do(
+            'INSERT INTO page 
+				(title, content, user_email, created_at, can_show ) 
+				VALUES("Test", "Can be a long long long text content here", "admin@myproject.com", "2017-07-30 18:20", 1 );'
         );
     },
 };
@@ -44,11 +61,46 @@ sub update_user {
     my $user = Model::get_user( $data->{email} );
     return unless $user;
 
-    __PACKAGE__->do( 'UPDATE user SET password = ?, fac_auth = ?, token = ?, rule = ? WHERE email = ?', {}, $data->{password}, $data->{fac_auth}, $data->{token}, $data->{rule}, $data->{email} );
+    Model->do( 'UPDATE user SET password = ?, fac_auth = ?, token = ?, rule = ? WHERE email = ?', {}, $data->{password}, $data->{fac_auth}, $data->{token}, $data->{rule}, $data->{email} );
 }
 
 sub get_messages {
     return Model->selectall_arrayref( 'SELECT * from entries', { Slice => {} } );
+}
+
+sub get_pages {
+    return Model->selectall_arrayref( 'SELECT * from page', { Slice => {} }, );
+}
+
+sub get_pages_can_show {
+    my $pages = Model->selectall_arrayref( 'SELECT id, title FROM page WHERE can_show = ?', undef, 1 );
+    my @return;
+    map { push @return, { id => $_->[0], title => $_->[1] } } @$pages;
+    return \@return;
+}
+
+sub get_page {
+    return Model->selectrow_hashref( 'SELECT * from page WHERE id = ?', { Slice => {} }, $_[0] );
+}
+
+sub update_page {
+    my $data = shift;
+    my $page = Model::get_page( $data->{id} );
+    return unless $page;
+
+    Model->do( 'UPDATE page SET title = ?, content = ?, user_email = ?, created_at = ?, can_show = ?  WHERE  id = ?', {}, $data->{title}, $data->{content}, $data->{user_email}, $data->{created_at}, $data->{can_show}, $data->{id} );
+}
+
+sub create_page {
+    my $data = shift;
+
+    Model->do( 'INSERT INTO page (title, content, user_email, created_at, can_show ) VALUES (?, ?, ?, ?, ? )', {}, $data->{title}, $data->{content}, $data->{user_email}, $data->{created_at}, $data->{can_show} );
+}
+
+sub delete_page {
+    my $id = shift;
+    return unless $id;
+    Model->do( 'DELETE FROM page WHERE id = ?', {}, $id );
 }
 
 package main;
@@ -108,6 +160,13 @@ helper check_token => sub {
         if $validation->csrf_protect->has_error('csrf_token');
 };
 
+hook before_render => sub {
+    my $self = shift;
+
+    my $pages = Model::get_pages_can_show();
+    $self->stash( nav_pages => $pages );
+};
+
 get '/' => sub {
     my $self    = shift;
     my $mesages = Model::get_messages();
@@ -121,6 +180,13 @@ get '/logout' => sub {
     $self->session( expires => 1 );
     $self->redirect_to('/');
 };
+
+get '/page/*id' => sub {
+    my $self = shift;
+    my $id   = $self->stash('id');
+    my $page = Model::get_page($id);
+    $self->stash( page => $page );
+} => 'page';
 
 get '/login/auth'  => 'auth';
 post '/login/auth' => sub {
@@ -256,7 +322,9 @@ get '/admin/user/get_token' => sub {
     $self->render( text => $token );
 } => 'get_token';
 
-get '/admin/adduser'        => 'adduser';
+get '/admin/adduser' => sub {
+    shift->stash( user => {});
+} => 'adduser';
 
 post '/admin/delete/*email' => => sub {
     my $self = shift;
@@ -286,6 +354,94 @@ post '/admin/adduser' => sub {
     $self->flash( sucess_message => 'Create user sucessfull!' );
     $self->redirect_to('/admin/users');
 };
+
+get '/admin/pages' => sub {
+    my $self  = shift;
+    my $pages = Model::get_pages();
+    $self->stash( pages => $pages );
+} => 'pages';
+
+any ['get', 'post'] => '/admin/page/create' => sub {
+    my $self = shift;
+
+    if ( lc( $self->req->method ) eq 'get' ) {
+        $self->stash( page => {} );
+    }
+    else {
+        my $title      = $self->param('title');
+        my $content    = $self->param('content');
+        my $user_email = $self->param('user_email');
+        my $can_show   = $self->param('can_show') || 0;
+        my $created_at = $self->param('created_at');
+
+        unless ($title) {
+            $self->flash( failed_message => 'Title must input' );
+            return $self->redirect_to('/admin/page/create');
+        }
+
+        Model::create_page(
+            {   title      => $title,
+                content    => $content,
+                user_email => $user_email,
+                created_at => $created_at,
+                can_show   => $can_show,
+            }
+        );
+
+        $self->flash( sucess_message => 'Create page success' );
+        return $self->redirect_to('/admin/pages');
+    }
+} => 'page_create';
+
+any ['get', 'post'] => '/admin/page/edit/*id' => sub {
+    my $self = shift;
+    my $id   = $self->stash('id');
+    my $page = Model::get_page($id);
+
+    unless ($page) {
+        $self->flash( failed_message => 'Page Not found' );
+        return $self->redirect_to('/admin/pages');
+    }
+    if ( lc( $self->req->method ) eq 'post' ) {
+
+        # did update page thins
+        my $title      = $self->param('title');
+        my $content    = $self->param('content');
+        my $user_email = $self->param('user_email');
+        my $can_show   = $self->param('can_show') || 0;
+        my $created_at = $self->param('created_at');
+
+        unless ($title) {
+            $self->flash( failed_message => 'Title must input' );
+            return $self->redirect_to("/admin/page/edit/$id");
+        }
+
+        Model::update_page(
+            {   id         => $id,
+                title      => $title,
+                content    => $content,
+                user_email => $user_email,
+                created_at => $created_at,
+                can_show   => $can_show,
+            }
+        );
+
+        $self->flash( sucess_message => 'Edit page success' );
+        return $self->redirect_to('/admin/pages');
+    }
+    $self->stash( page => $page );
+} => 'page_edit';
+
+get '/admin/page/delete/*id' => sub {
+    my $self = shift;
+    my $id   = $self->stash('id');
+    $self->flash( failed_message => 'page not found' ) unless $id;
+
+    Model::delete_page($id);
+
+    $self->flash( sucess_message => 'page not found' ) unless $id;
+    return $self->redirect_to('/admin/pages');
+} => 'page_delete';
 
 app->start;
 
@@ -346,6 +502,16 @@ body {
   	  
           % current_route eq 'app' ? $self->stash( class => 'active') : $self->stash( class => '');
   		    <li class="<%= stash 'class' %>" ><a href="/app">App</a></li>
+          
+          %= t li => begin
+            %= link_to 'Pages' => '/admin/pages'
+          % end
+
+          % foreach my $page ( @$nav_pages ) {
+            %= t li => begin
+              %= link_to "$page->{title}" => "/page/$page->{id}"
+            % end
+          % }
         %end
   		
         %= form_for '/logout' => method => 'get' => class =>'navbar-form navbar-right' => begin
@@ -688,11 +854,138 @@ $('document').ready( function() {
   % end 
 %end
 
-687:	final indentation level: 1
+@@ pages.html.ep
+% layout 'default';
 
-Final nesting depth of '('s is 1
-The most recent un-matched '(' is on line 44
-44: my $user = __PACKAGE__->get_user( $data->{email};
-                                    ^
-687:	To see 2 non-critical warnings rerun with -w
-687:	To save a full .LOG file rerun with -g
+%= t h3 => 'Pages List'
+%= link_to 'Create Page' => '/admin/page/create' => class => 'btn btn-primary'
+<hr>
+% if ( @$pages > 0 ) {
+%= t table => class => 'table table-hover table-condensed' => begin
+  %= t thead => begin
+    %= t tr => begin
+      %= t th => 'Title'
+      %= t th => 'Content'
+      %= t th => 'Author'
+      %= t th => 'Date'
+      %= t th => 'ShowNav'
+      %= t th => 'Action'
+    % end
+  % end
+
+  %= t tbody => begin
+    % foreach my $page ( @$pages ) {
+      %= t tr => begin
+        %= t td => $page->{title}
+        %= t td => $page->{content}
+        %= t td => $page->{user_email}
+        %= t td => $page->{created_at}
+        %= t td => begin 
+            % if ( $page->{can_show} && $page->{can_show} == 1 ) {
+                %= t span => class => 'label label-success' => 'YES'
+            % } else {
+                %= t span => class => 'label label-default' => 'NO'
+            %}
+        % end
+        %= t td => begin 
+            %= link_to 'Edit' => "/admin/page/edit/$page->{id}" => class => 'btn btn-xs btn-primary'
+            %= link_to 'Delete' => "/admin/page/delete/$page->{id}" => class => 'btn btn-xs btn-danger'
+        % end
+      % end
+    % }
+  % end
+% end
+% } else {
+  %= t div => class => 'alert alert-warning' => 'No pages data!'
+% }
+
+
+@@ page_create.html.ep
+% layout 'default';
+
+%= t h3 => 'Create Page'
+<hr>
+%= form_for '/admin/page/create' => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+    %= include '_page_form'
+    %= t div => class => 'form-group' => begin 
+        %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
+            %= submit_button 'Create Page' => class => 'btn btn-primary'
+        % end
+    % end
+% end
+
+@@ page_edit.html.ep
+% layout 'default';
+
+%= t h3 => 'Edit Page'
+<hr>
+%= form_for "/admin/page/edit/1" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+    %= include '_page_form'
+    
+    %= t div => class => 'form-group' => begin 
+        %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
+            %= submit_button 'Edit Page' => class => 'btn btn-primary'
+        % end
+    % end
+% end
+
+
+@@ _page_form.html.ep 
+%= csrf_field
+%= t div => class => 'form-group' => begin
+    %= label_for 'input_title' => 'Title' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-10' => begin
+      %= input_tag 'title' => "$page->{title}", type => 'text', class => 'form-control', id => 'input_title',  placeholder => 'Page title'
+  % end
+% end
+
+%= t div => class => 'form-group' => begin
+    %= label_for 'input_content' => 'Content' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-10' => begin
+      %= text_area 'content' => rows => 10 => class => 'col-sm-12' =>  begin
+        %= $page->{content}
+      % end
+  % end
+% end
+
+%= t div => class => 'form-group' => begin
+    %= label_for 'input_user_email' => 'Author' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-10' => begin
+        %= input_tag 'user_email', type => 'text', class => 'form-control', id => 'input_user_email',  value =>  "$page->{user_email}"
+    % end
+% end
+
+%= t div => class => 'form-group' => begin
+    %= label_for 'input_created_at' => 'Create Date' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-10' => begin
+        %= date_field created_at => "$page->{created_at}", class => 'form-control', id => 'input_created_at'
+  % end
+% end
+
+
+%= t div => class => 'form-group' => begin
+    %= label_for 'input_can_show' => 'Show On Nav' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-10' => begin
+      %= input_tag 'can_show', type => 'number', class => 'form-control', id => 'input_can_show', value => "$page->{can_show}"
+  % end
+% end
+
+
+@@ page.html.ep
+% layout 'default';
+
+%= t h2 => $page->{title}
+<hr>
+%= t div => class => 'well' => begin
+    %= $page->{content}
+% end
+<hr>
+%= t p => begin
+    %= t span => begin
+        %= 'Author: ' .  $page->{user_email}
+    % end
+
+    %= t span => begin
+        %= 'Date: ' . $page->{created_at }
+    % end
+% end
