@@ -31,20 +31,18 @@ use ORLite {
             content TEXT NOT NULL,
             user_email TEXT NOT NULL,
             created_at TEXT NOT NULL,
-            can_show INTEGER NOT NULL DEFAULT 0); '
+            can_show INTEGER NOT NULL DEFAULT 0,
+            rule INTEGER NOT NULL DEFAULT 0
+            ); '
         );
 
-        $dbh->do(
-            'INSERT INTO user 
-				(email, password, fac_auth, token, rule) 
-				VALUES("admin@myproject.com","21232f297a57a5a743894a0e4a801fc3", "NO", "","3");'
-        );
+        # insert user demo data
+        $dbh->do( 'INSERT INTO user (email, password, fac_auth, token, rule) VALUES("admin@myproject.com","21232f297a57a5a743894a0e4a801fc3", "NO", "","3");');
+        $dbh->do( 'INSERT INTO user (email, password, fac_auth, token, rule) VALUES("bal@bal.com","ff9c63f843b11f9c3666fe46caaddea8", "NO", "","1");');
 
-        $dbh->do(
-            'INSERT INTO page 
-				(title, content, user_email, created_at, can_show ) 
-				VALUES("Test", "Can be a long long long text content here", "admin@myproject.com", "2017-07-30 18:20", 1 );'
-        );
+        # insert page demo data
+        $dbh->do( 'INSERT INTO page (title, content, user_email, created_at, can_show, rule ) VALUES("Test", "Can be a long long long text content here", "admin@myproject.com", "2017-07-30 18:20", 1, 3 );');
+        $dbh->do( 'INSERT INTO page (title, content, user_email, created_at, can_show, rule ) VALUES("Bal Test", "bal user can see this page", "bal@bal.com", "2017-07-30 18:20", 1, 0 );');
     },
 };
 
@@ -73,7 +71,8 @@ sub get_pages {
 }
 
 sub get_pages_can_show {
-    my $pages = Model->selectall_arrayref( 'SELECT id, title FROM page WHERE can_show = ?', undef, 1 );
+    my $rule = shift || 0;
+    my $pages = Model->selectall_arrayref( 'SELECT id, title FROM page WHERE can_show = ? and rule <= ? ', undef, 1, $rule );
     my @return;
     map { push @return, { id => $_->[0], title => $_->[1] } } @$pages;
     return \@return;
@@ -88,13 +87,16 @@ sub update_page {
     my $page = Model::get_page( $data->{id} );
     return unless $page;
 
-    Model->do( 'UPDATE page SET title = ?, content = ?, user_email = ?, created_at = ?, can_show = ?  WHERE  id = ?', {}, $data->{title}, $data->{content}, $data->{user_email}, $data->{created_at}, $data->{can_show}, $data->{id} );
+    use Data::Dumper;
+    print Dumper $data;
+    print Dumper $page;
+    Model->do( 'UPDATE page SET title = ?, content = ?, user_email = ?, created_at = ?, can_show = ?, rule = ?  WHERE  id = ?', {}, $data->{title}, $data->{content}, $data->{user_email}, $data->{created_at}, $data->{can_show}, $data->{rule}, $data->{id} );
 }
 
 sub create_page {
     my $data = shift;
 
-    Model->do( 'INSERT INTO page (title, content, user_email, created_at, can_show ) VALUES (?, ?, ?, ?, ? )', {}, $data->{title}, $data->{content}, $data->{user_email}, $data->{created_at}, $data->{can_show} );
+    Model->do( 'INSERT INTO page (title, content, user_email, created_at, can_show, rule ) VALUES (?, ?, ?, ?, ?, ?)', {}, $data->{title}, $data->{content}, $data->{user_email}, $data->{created_at}, $data->{can_show}, $data->{rule} );
 }
 
 sub delete_page {
@@ -162,8 +164,8 @@ helper check_token => sub {
 
 hook before_render => sub {
     my $self = shift;
-
-    my $pages = Model::get_pages_can_show();
+    
+    my $pages = Model::get_pages_can_show( $self->session( 'rule' ) );
     $self->stash( nav_pages => $pages );
 };
 
@@ -370,11 +372,6 @@ any ['get', 'post'] => '/admin/page/create' => sub {
     }
     else {
         my $title      = $self->param('title');
-        my $content    = $self->param('content');
-        my $user_email = $self->param('user_email');
-        my $can_show   = $self->param('can_show') || 0;
-        my $created_at = $self->param('created_at');
-
         unless ($title) {
             $self->flash( failed_message => 'Title must input' );
             return $self->redirect_to('/admin/page/create');
@@ -382,10 +379,11 @@ any ['get', 'post'] => '/admin/page/create' => sub {
 
         Model::create_page(
             {   title      => $title,
-                content    => $content,
-                user_email => $user_email,
-                created_at => $created_at,
-                can_show   => $can_show,
+                content    => $self->param('content'),
+                user_email => $self->param('user_email'),
+                can_show   => $self->param('can_show') || 0,
+                created_at => $self->param('created_at'),
+                rule => $self->param( 'rule' ) || 0,
             }
         );
 
@@ -407,11 +405,6 @@ any ['get', 'post'] => '/admin/page/edit/*id' => sub {
 
         # did update page thins
         my $title      = $self->param('title');
-        my $content    = $self->param('content');
-        my $user_email = $self->param('user_email');
-        my $can_show   = $self->param('can_show') || 0;
-        my $created_at = $self->param('created_at');
-
         unless ($title) {
             $self->flash( failed_message => 'Title must input' );
             return $self->redirect_to("/admin/page/edit/$id");
@@ -420,10 +413,11 @@ any ['get', 'post'] => '/admin/page/edit/*id' => sub {
         Model::update_page(
             {   id         => $id,
                 title      => $title,
-                content    => $content,
-                user_email => $user_email,
-                created_at => $created_at,
-                can_show   => $can_show,
+                content    => $self->param('content'),
+                user_email => $self->param('user_email'),
+                can_show   => $self->param('can_show') || 0,
+                created_at => $self->param('created_at'),
+                rule => $self->param( 'rule' ) || 0,
             }
         );
 
@@ -500,19 +494,27 @@ body {
   
           % if ( (session 'rule') > 2 ) {
   	        % current_route eq 'adminusers' ? $self->stash( class => 'active') : $self->stash( class => '');
-  		      <li class="<%= stash 'class' %>" ><a href="/admin/users">Admin</a></li>
+  		      <li class="<%= stash 'class' %>" ><a href="/admin/users">Users</a></li>
   	      %}
   	  
           % current_route eq 'message' ? $self->stash( class => 'active') : $self->stash( class => '');
-  		    <li class="<%= stash 'class' %>" ><a href="/message">Message</a></li>
+  		  <li class="<%= stash 'class' %>" ><a href="/message">Message</a></li>
+         
+          % if ( (session 'rule') > 2 ) {
+            % current_route eq 'pages' ? $self->stash( class => 'active') : $self->stash( class => '');
+  		    <li class="<%= stash 'class' %>" ><a href="/admin/pages">Pages</a></li>
+          % }
           
-          %= t li => begin
-            %= link_to 'Pages' => '/admin/pages'
-          % end
-
-          % foreach my $page ( @$nav_pages ) {
-            %= t li => begin
-              %= link_to "$page->{title}" => "/page/$page->{id}"
+          % if ( @$nav_pages > 0 ) {
+            %= t li => class => 'dropdown' => begin
+                <a href='#' class='dropdown-toggle' data-toggle='dropdown'>UserPages <b class="caret"></b></a>
+                %= t ul => class => 'dropdown-menu' => begin
+                    % foreach my $page ( @$nav_pages ) {
+                        %= t li => begin
+                            %= link_to "$page->{title}" => "/page/$page->{id}"
+                        % end
+                    % }
+                % end
             % end
           % }
         %end
@@ -576,7 +578,7 @@ body {
 
 For demo please use the following details:<br>
 Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
-%= stash 'pw'
+Email <b>bal@bal.com</b>, Password: <b>bal</b><br>
 <hr>
 
 %= t div => class => 'panel panel-default' => begin
@@ -926,7 +928,7 @@ $('document').ready( function() {
 
 %= t h3 => 'Edit Page'
 <hr>
-%= form_for "/admin/page/edit/1" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+%= form_for "/admin/page/edit/$page->{id}" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
     %= include '_page_form'
     
     %= t div => class => 'form-group' => begin 
@@ -995,6 +997,14 @@ $('document').ready( function() {
         % }
   % end
 % end
+
+%= t div => class => 'form-group' => begin
+    %= label_for 'input_rule' => 'Rule' => class => 'col-sm-2 control-label'
+    %= t div => class => 'col-sm-4' => begin
+        %= input_tag rule => "$page->{rule}", type => 'number', class => 'form-control', id => 'input_rule', placeholder => 'Nmber can be: 0 ~ 10'
+    % end
+% end
+
 
 %= javascript begin
 $(document).ready( function(){
