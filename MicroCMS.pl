@@ -224,19 +224,19 @@ under sub {
     $self->redirect_to('/');
 };
 
-get '/app/addmessage' => sub {
+get '/message' => sub {
+    my $self    = shift;
+    my $mesages = Model::get_messages();
+    $self->stash( mesages => $mesages );
+} => 'message';
+
+get '/message/addmessage' => sub {
     my $self = shift;
     my $date = Mojo::Date->new(time);
     $self->stash( date => $date );
 } => 'addmessage';
 
-get '/app' => sub {
-    my $self    = shift;
-    my $mesages = Model::get_messages();
-    $self->stash( mesages => $mesages );
-} => 'app';
-
-post '/app/addmessage' => sub {
+post '/message/addmessage' => sub {
     my $self = shift;
     return if $self->check_token;
 
@@ -246,10 +246,10 @@ post '/app/addmessage' => sub {
         date    => $self->param('date'),
     );
     $self->flash( sucess_message => 'Create message sucessfull!' );
-    $self->redirect_to('/app');
+    $self->redirect_to('/message');
 };
 
-post '/app/delete/*id' => => sub {
+post '/message/delete/*id' => => sub {
     my $self = shift;
     return if $self->check_token;
     my $id = $self->stash('id');
@@ -257,7 +257,7 @@ post '/app/delete/*id' => => sub {
     my $mesages = Model::get_messages();
     $self->stash( mesages => $mesages );
     $self->flash( sucess_message => "Message sucessfull deleted!" );
-    $self->redirect_to('/app');
+    $self->redirect_to('/message');
 };
 
 under sub {
@@ -501,8 +501,8 @@ body {
   		      <li class="<%= stash 'class' %>" ><a href="/admin/users">Admin</a></li>
   	      %}
   	  
-          % current_route eq 'app' ? $self->stash( class => 'active') : $self->stash( class => '');
-  		    <li class="<%= stash 'class' %>" ><a href="/app">App</a></li>
+          % current_route eq 'message' ? $self->stash( class => 'active') : $self->stash( class => '');
+  		    <li class="<%= stash 'class' %>" ><a href="/message">Message</a></li>
           
           %= t li => begin
             %= link_to 'Pages' => '/admin/pages'
@@ -655,10 +655,10 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 %end
 
 
-@@ app.html.ep
+@@ message.html.ep
 % layout 'default';
 
-%= link_to 'Add new message' => 'app/addmessage' => class => 'btn btn-primary btn-sm'
+%= link_to 'Add new message' => '/message/addmessage' => class => 'btn btn-primary btn-sm'
 <hr>
 
 % if ( $mesages ) {
@@ -679,9 +679,13 @@ Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 	      %= t td => $item->{content}
 	      %= t td => $item->{date}
 	      %= t td => begin
-	        %= form_for "app/delete/$item->{id}" => method => 'post' => begin
+	        %= form_for "/message/delete/$item->{id}" => method => 'post' => begin
 	          %= csrf_field
-            %= submit_button 'Delete' => class => 'btn btn-primary btn-sm' => disabled => session->{rule} < 3 ? 'disabled' : ''
+              % if ( session->{rule} < 3 ){
+                %= submit_button 'Delete' => class => 'btn btn-primary btn-sm' => disabled => 'disabled'
+              % } else {
+                %= submit_button 'Delete' => class => 'btn btn-primary btn-sm'
+              % }
           % end
 	      % end 
 	    % end 
@@ -782,7 +786,7 @@ $('document').ready( function() {
 
 %= t h3 => 'Add Message'
 
-%= form_for '/app/addmessage' => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+%= form_for '/message/addmessage' => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
   %= csrf_field
   %= t div => class => "form-group" => begin
 	  %= label_for 'inputEmail3' => 'Email' => class => 'col-sm-2 control-label'
@@ -959,7 +963,7 @@ $('document').ready( function() {
 %= t div => class => 'form-group' => begin
     %= label_for 'input_created_at' => 'Create Date' => class => 'col-sm-2 control-label'
     %= t div => class => 'col-sm-10' => begin
-        %= date_field created_at => "$page->{created_at}", class => 'form-control', id => 'input_created_at'
+        %= input_tag created_at => "$page->{created_at}", type => 'date', class => 'form-control', id => 'input_created_at'
   % end
 % end
 
