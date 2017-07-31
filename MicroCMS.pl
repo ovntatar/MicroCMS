@@ -264,8 +264,7 @@ under sub {
     my $self = shift;
     return 1 if $self->session("rule") == 3;
     $self->flash( failed_message => 'Permission denied!' );
-    $self->render( 'index', status => '403' );
-    return undef;
+    return $self->redirect_to( '/' );
 };
 
 get '/admin/users' => sub {
