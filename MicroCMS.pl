@@ -349,6 +349,8 @@ post '/admin/adduser' => sub {
     Model::User->create(
         email    => $self->param('email'),
         password => b( $self->param('password') )->md5_sum,
+        fac_auth => $self->param( 'fac_auth' ) || 'NO',
+        token => $self->param( 'token' ) || '',
         rule     => $self->param('rule'),
     );
     $self->flash( sucess_message => 'Create user sucessfull!' );
