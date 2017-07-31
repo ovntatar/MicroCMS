@@ -12,7 +12,7 @@ use ORLite {
 				(email   TEXT NOT NULL UNIQUE PRIMARY KEY,
 				password TEXT NOT NULL,
                 fac_auth TEXT NOT NULL DEFAULT "NO",
-				token TEXT NOT NULL,
+				token TEXT,
 				rule     TEXT);'
         );
         $dbh->do(
