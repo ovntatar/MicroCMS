@@ -458,7 +458,9 @@ __DATA__
   %= t meta => name=> 'author' => content=>''
 %end
 %= stylesheet '//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css'
+%= stylesheet 'https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.1/css/bootstrap-datepicker3.css'
 %= javascript '//ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'
+%= javascript 'https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.1/js/bootstrap-datepicker.min.js'
 %= stylesheet begin
 body {
   padding-top: 50px;
@@ -955,24 +957,53 @@ $('document').ready( function() {
 
 %= t div => class => 'form-group' => begin
     %= label_for 'input_user_email' => 'Author' => class => 'col-sm-2 control-label'
-    %= t div => class => 'col-sm-10' => begin
+    %= t div => class => 'col-sm-4' => begin
         %= input_tag 'user_email', type => 'text', class => 'form-control', id => 'input_user_email',  value =>  "$page->{user_email}"
     % end
 % end
 
 %= t div => class => 'form-group' => begin
     %= label_for 'input_created_at' => 'Create Date' => class => 'col-sm-2 control-label'
-    %= t div => class => 'col-sm-10' => begin
-        %= input_tag created_at => "$page->{created_at}", type => 'date', class => 'form-control', id => 'input_created_at'
+    %= t div => class => 'col-sm-4' => begin
+        %= input_tag created_at => "$page->{created_at}", type => 'text', class => 'form-control datepicker', id => 'input_created_at'
   % end
 % end
 
-
 %= t div => class => 'form-group' => begin
     %= label_for 'input_can_show' => 'Show On Nav' => class => 'col-sm-2 control-label'
-    %= t div => class => 'col-sm-10' => begin
-      %= input_tag 'can_show', type => 'number', class => 'form-control', id => 'input_can_show', value => "$page->{can_show}"
+    %= t div => class => 'col-sm-4' => begin
+        % if ( exists $page->{can_show} && $page->{can_show} > 0 ) {
+            %= label_for '', class => 'radio-inline' => begin
+                %= radio_button can_show => '1', checked => 'checked'
+                Enabled
+            % end
+
+            %= label_for '', class => 'radio-inline' => begin
+                %= radio_button can_show => '0'
+                Disable
+            % end
+        % } else {
+            %= label_for '', class => 'radio-inline' => begin
+                %= radio_button can_show => '1'
+                Enabled
+            % end
+            
+            %= label_for '', class => 'radio-inline' => begin
+                %= radio_button can_show => '0', checked => 'checked'
+                Disable
+            % end
+        % }
   % end
+% end
+
+%= javascript begin
+$(document).ready( function(){
+    $('.datepicker').datepicker( {
+        format: 'yyyy-mm-dd',
+        todayHighlight: true,
+        autoclose: true
+    });
+});
 % end
 
 
