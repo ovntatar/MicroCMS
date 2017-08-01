@@ -37,12 +37,12 @@ use ORLite {
         );
 
         # insert user demo data
-        $dbh->do( 'INSERT INTO user (email, password, fac_auth, token, rule) VALUES("admin@myproject.com","21232f297a57a5a743894a0e4a801fc3", "NO", "","3");');
-        $dbh->do( 'INSERT INTO user (email, password, fac_auth, token, rule) VALUES("bal@bal.com","ff9c63f843b11f9c3666fe46caaddea8", "NO", "","1");');
+        $dbh->do('INSERT INTO user (email, password, fac_auth, token, rule) VALUES("admin@myproject.com","21232f297a57a5a743894a0e4a801fc3", "NO", "","3");');
+        $dbh->do('INSERT INTO user (email, password, fac_auth, token, rule) VALUES("bal@bal.com","ff9c63f843b11f9c3666fe46caaddea8", "NO", "","1");');
 
         # insert page demo data
-        $dbh->do( 'INSERT INTO page (title, content, user_email, created_at, can_show, rule ) VALUES("Test", "Can be a long long long text content here", "admin@myproject.com", "2017-07-30 18:20", 1, 3 );');
-        $dbh->do( 'INSERT INTO page (title, content, user_email, created_at, can_show, rule ) VALUES("Bal Test", "bal user can see this page", "bal@bal.com", "2017-07-30 18:20", 1, 0 );');
+        $dbh->do('INSERT INTO page (title, content, user_email, created_at, can_show, rule ) VALUES("Test", "Can be a long long long text content here", "admin@myproject.com", "2017-07-30 18:20", 1, 3 );');
+        $dbh->do('INSERT INTO page (title, content, user_email, created_at, can_show, rule ) VALUES("Bal Test", "bal user can see this page", "bal@bal.com", "2017-07-30 18:20", 1, 0 );');
     },
 };
 
@@ -87,9 +87,6 @@ sub update_page {
     my $page = Model::get_page( $data->{id} );
     return unless $page;
 
-    use Data::Dumper;
-    print Dumper $data;
-    print Dumper $page;
     Model->do( 'UPDATE page SET title = ?, content = ?, user_email = ?, created_at = ?, can_show = ?, rule = ?  WHERE  id = ?', {}, $data->{title}, $data->{content}, $data->{user_email}, $data->{created_at}, $data->{can_show}, $data->{rule}, $data->{id} );
 }
 
@@ -155,6 +152,20 @@ helper auth => sub {
     }
 };
 
+helper google_2fac_auth => sub {
+    my $self = shift;
+    my $user = shift;
+    my $code = shift;
+    return 0 unless $user && $code;
+
+    my $auth = Auth::GoogleAuth->new(
+        {   secret32 => $user->{token},
+            key_id   => $user->{email},
+        }
+    );
+    return $auth->verify($code);
+};
+
 helper check_token => sub {
     my $self       = shift;
     my $validation = $self->validation;
@@ -164,8 +175,8 @@ helper check_token => sub {
 
 hook before_render => sub {
     my $self = shift;
-    
-    my $pages = Model::get_pages_can_show( $self->session( 'rule' ) );
+
+    my $pages = Model::get_pages_can_show( $self->session('rule') );
     $self->stash( nav_pages => $pages );
 };
 
@@ -200,14 +211,7 @@ post '/login/auth' => sub {
 
     $self->do_auth_fail($user) unless $codes;
 
-    my $auth = Auth::GoogleAuth->new;
-    $auth = Auth::GoogleAuth->new(
-        {   secret32 => $user->{token},
-            key_id   => $user->{email},
-        }
-    );
-
-    $self->do_auth_login_fail($user) if $auth->verify($codes) == 0;
+    $self->do_auth_login_fail($user) if $self->google_2fac_auth( $user, $codes ) == 0;
     return $self->redirect_to('/')   if $self->do_login_success($user);
 };
 
@@ -225,6 +229,95 @@ under sub {
     $self->flash( failed_message => 'Access Denied!' );
     $self->redirect_to('/');
 };
+
+get '/user/get_token' => sub {
+    my $self  = shift;
+    my $auth  = Auth::GoogleAuth->new;
+    my $token = $auth->generate_secret32;
+    $self->render( text => $token );
+} => 'get_token';
+
+get '/pwsafe' => sub {
+    my $self  = shift;
+    my $email = $self->session('email');
+    $self->stash( user => Model::get_user($email) );
+} => 'pwsafe';
+
+post '/pwsafe/2fac_auth/*email' => sub {
+    my $self = shift;
+    unless ( $self->session('email') eq $self->stash('email') ) {
+        $self->flash( failed_message => 'Only can setup user self token' );
+        return $self->redirect_to('/pwsafe');
+    }
+    my $user = Model::get_user( $self->stash( 'email' ));
+    unless ( $user ) {
+        $self->flash( failed_message => 'User data not found' );
+        return $self->redirect_to('/pwsafe');
+    }
+
+    if ( $user->{fac_auth} eq 'YES' ) {
+       unless ( $self->google_2fac_auth( $user, $self->param( 'codes' ) ) ) {
+            $self->flash( failed_message => 'Google 2FacAuth fail' );
+            return $self->redirect_to('/pwsafe');
+        }
+    }
+
+    if ( $self->param('fac_auth') eq 'YES' ) {
+        $user->{fac_auth} = 'YES';
+        $user->{token} = $self->param( 'token' );
+    } else {
+        $user->{fac_auth} = 'NO';
+        $user->{token} = '';
+    }
+
+    Model::update_user( $user );
+
+    $self->flash( sucess_message => 'Update google 2FacAuth success' );
+    $self->redirect_to( '/pwsafe' );
+} => 'update_2fac_auth_token';
+
+post '/pwsafe/edit/*email' => sub {
+    my $self            = shift;
+    my $email           = $self->stash('email');
+    my $fac_auth        = $self->param('fac_auth');
+    my $password_old    = $self->param('password_old');
+    my $password_new    = $self->param('password_new');
+    my $password_retype = $self->param('password_retype');
+
+    unless ( $email eq $self->session('email') ) {
+        $self->flash( failed_message => 'Only can change user self password' );
+        return $self->redirect_to('/pwsafe');
+    }
+
+    unless ( length($password_new) > 0 && $password_new eq $password_retype ) {
+        $self->flash( failed_message => 'New password can\'t be null or Retype password not match' );
+        return $self->redirect_to('/pwsafe');
+    }
+
+    my $user = Model::get_user($email);
+    unless ($user) {
+        $self->flash( failed_message => 'User not found' );
+        return $self->redirect_to('/pwsafe');
+    }
+
+    if ( $user->{fac_auth} eq 'YES' ) {
+       $self->app->log->debug( $self->param( 'fac_auth' ) . 'jlkajsdlkjflakjsdflkjasdkljflakjsdfkla' );
+       unless ( $self->google_2fac_auth( $user, $self->param( 'fac_auth' ) ) ) {
+            $self->flash( failed_message => 'Google 2FacAuth fail' );
+            return $self->redirect_to('/pwsafe');
+        }
+    }
+    my $password = b($password_old)->md5_sum;
+    unless ( $user->{password} eq $password ) {
+        $self->flash( failed_message => 'Old password not match' );
+        return $self->redirect_to('/pwsafe');
+    }
+
+    $user->{password} = b($password_new)->md5_sum;
+    Model::update_user($user);
+    $self->flash( sucess_message => 'Update password success!' );
+    return $self->redirect_to('/pwsafe');
+} => 'update_password';
 
 get '/message' => sub {
     my $self    = shift;
@@ -266,7 +359,7 @@ under sub {
     my $self = shift;
     return 1 if $self->session("rule") == 3;
     $self->flash( failed_message => 'Permission denied!' );
-    return $self->redirect_to( '/' );
+    return $self->redirect_to('/');
 };
 
 get '/admin/users' => sub {
@@ -297,8 +390,10 @@ post '/admin/user/edit/*email_org' => sub {
         return $self->redirect_to('/admin/users');
     }
 
-    my $password = b( $self->param('password') )->md5_sum, my $rule = $self->param('rule'), my $fac_auth = $self->param('fac_auth');
-    my $token = $self->param('token');
+    my $password = b( $self->param('password') )->md5_sum;
+    my $rule     = $self->param('rule');
+    my $fac_auth = $self->param('fac_auth');
+    my $token    = $self->param('token');
     if ( lc($fac_auth) eq 'YES' and not $token ) {
         $self->falsh( failed_message => 'No token set' );
         $self->stash( user => $user );
@@ -316,15 +411,8 @@ post '/admin/user/edit/*email_org' => sub {
     return $self->redirect_to('/admin/users');
 };
 
-get '/admin/user/get_token' => sub {
-    my $self  = shift;
-    my $auth  = Auth::GoogleAuth->new;
-    my $token = $auth->generate_secret32;
-    $self->render( text => $token );
-} => 'get_token';
-
 get '/admin/adduser' => sub {
-    shift->stash( user => {});
+    shift->stash( user => {} );
 } => 'adduser';
 
 post '/admin/delete/*email' => => sub {
@@ -350,8 +438,8 @@ post '/admin/adduser' => sub {
     Model::User->create(
         email    => $self->param('email'),
         password => b( $self->param('password') )->md5_sum,
-        fac_auth => $self->param( 'fac_auth' ) || 'NO',
-        token => $self->param( 'token' ) || '',
+        fac_auth => $self->param('fac_auth') || 'NO',
+        token    => $self->param('token') || '',
         rule     => $self->param('rule'),
     );
     $self->flash( sucess_message => 'Create user sucessfull!' );
@@ -371,7 +459,7 @@ any ['get', 'post'] => '/admin/page/create' => sub {
         $self->stash( page => {} );
     }
     else {
-        my $title      = $self->param('title');
+        my $title = $self->param('title');
         unless ($title) {
             $self->flash( failed_message => 'Title must input' );
             return $self->redirect_to('/admin/page/create');
@@ -383,7 +471,7 @@ any ['get', 'post'] => '/admin/page/create' => sub {
                 user_email => $self->param('user_email'),
                 can_show   => $self->param('can_show') || 0,
                 created_at => $self->param('created_at'),
-                rule => $self->param( 'rule' ) || 0,
+                rule       => $self->param('rule') || 0,
             }
         );
 
@@ -404,7 +492,7 @@ any ['get', 'post'] => '/admin/page/edit/*id' => sub {
     if ( lc( $self->req->method ) eq 'post' ) {
 
         # did update page thins
-        my $title      = $self->param('title');
+        my $title = $self->param('title');
         unless ($title) {
             $self->flash( failed_message => 'Title must input' );
             return $self->redirect_to("/admin/page/edit/$id");
@@ -417,7 +505,7 @@ any ['get', 'post'] => '/admin/page/edit/*id' => sub {
                 user_email => $self->param('user_email'),
                 can_show   => $self->param('can_show') || 0,
                 created_at => $self->param('created_at'),
-                rule => $self->param( 'rule' ) || 0,
+                rule       => $self->param('rule') || 0,
             }
         );
 
@@ -517,8 +605,13 @@ body {
                 % end
             % end
           % }
+  	
+        % if ( session 'email' ) {
+           % current_route eq 'pwsafe' ? $self->stash( class => 'active') : $self->stash( class => '');
+  	       <li class="<%= stash 'class' %>" ><a href="/pwsafe">PwSafe</a></li>
+        % }
         %end
-  		
+
         %= form_for '/logout' => method => 'get' => class =>'navbar-form navbar-right' => begin
           % my $text = 'Logout ' . session 'email'; 
           %= submit_button $text => class => 'btn btn-success'
@@ -733,20 +826,18 @@ Email <b>bal@bal.com</b>, Password: <b>bal</b><br>
 %= t div => class => 'form-group' => begin
     %= label_for 'token_flag' => '2FacAuth' => class => 'col-sm-2 control-label'
     %= t div => class => 'col-sm-10' => begin
-      % if ( $user->{fac_auth} eq 'YES' ) {
-        %= radio_button fac_auth => 'YES', checked => 1
-      % } else {
-        %= radio_button fac_auth => 'YES', 
-      % }
-      Enable
-
-      % if ( $user->{fac_auth} eq 'NO' ) {
-        %= radio_button fac_auth => 'NO', checked => 1
-      % } else {
-        %= radio_button fac_auth => 'NO'
-      % }
-      Disable
-  % end
+        % if ( $user->{fac_auth} eq 'YES' ) {
+            %= radio_button fac_auth => 'YES', checked => 1
+            Enable
+            %= radio_button fac_auth => 'NO'
+            Disable
+        % } else {
+            %= radio_button fac_auth => 'YES', 
+            Enable
+            %= radio_button fac_auth => 'NO', checked => 1
+            Disable
+        % }
+    % end
 % end
 
 %= t div => class => 'form-group' => begin
@@ -772,7 +863,7 @@ $('document').ready( function() {
         } else {
             var email = $("input[name='email']").val();
             $.ajax( {
-                url: '/admin/user/get_token',
+                url: '/user/get_token',
                 success: function(token) {
                     $("#inputtoken").val( token );
                 },
@@ -1035,3 +1126,119 @@ $(document).ready( function(){
         %= 'Date: ' . $page->{created_at }
     % end
 % end
+
+@@ pwsafe.html.ep
+% layout 'default';
+
+%=t h3 => 'Update user password'
+<hr>
+%= form_for "/pwsafe/edit/$user->{email}" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+    %= csrf_field
+
+    %= t div => class => 'form-group' => begin
+        %= label_for 'input_password_old' => 'Old Password' => class => 'col-sm-2 control-label'
+        %= t div => class => 'col-sm-4' => begin
+            %= input_tag 'password_old', type => 'password', class => 'form-control', id => 'input_password_old', placeholder => 'Old password'
+        % end
+    % end
+
+    %= t div => class => 'form-group' => begin
+        %= label_for 'input_password_new' => 'New Password' => class => 'col-sm-2 control-label'
+        %= t div => class => 'col-sm-4' => begin
+            %= input_tag 'password_new', type => 'password', class => 'form-control', id => 'input_password_new', placeholder => 'New password'
+        % end
+    % end
+
+    %= t div => class => 'form-group' => begin
+        %= label_for 'input_password_retype' => 'Retype Password' => class => 'col-sm-2 control-label'
+        %= t div => class => 'col-sm-4' => begin
+            %= input_tag 'password_retype', type => 'password', class => 'form-control', id => 'input_password_retype', placeholder => 'Retype new password'
+         % end
+    % end
+
+    % if ( $user->{fac_auth} eq 'YES' ) {
+        %= t div => class => 'form-group' => begin
+            %= label_for 'input_fac_auth' => '2FacAuth Code' => class => 'col-sm-2 control-label'
+            %= t div => class => 'col-sm-4' => begin
+                %= input_tag 'fac_auth', type => 'text', class => 'form-control', id => 'input_fac_auth', placeholder => '2FacAuth code'
+            % end
+        % end
+    %}
+
+    %= t div => class => 'form-group' => begin 
+        %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
+            %= submit_button 'Update password' => class => 'btn btn-default btn-primary'
+         % end
+    % end
+% end
+
+<hr>
+
+%=t h3 => 'Update 2FacAuth'
+<hr>
+%= form_for "/pwsafe/2fac_auth/$user->{email}" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+    %= csrf_field
+
+    %= t div => class => 'form-group' => begin
+        %= label_for 'token_flag' => '2FacAuth' => class => 'col-sm-2 control-label'
+        %= t div => class => 'col-sm-10' => begin
+            % if ( $user->{fac_auth} eq 'YES' ) {
+                %= radio_button fac_auth => 'YES', checked => 1
+                Enable
+                %= radio_button fac_auth => 'NO'
+                Disable
+            % } else {
+                %= radio_button fac_auth => 'YES', 
+                Enable
+                %= radio_button fac_auth => 'NO', checked => 1
+                Disable
+            % }
+        % end
+% end
+
+
+    % if ( $user->{fac_auth} eq 'YES' ) {
+    %= t div => class => 'form-group' => begin
+        %= label_for 'input_codes' => '2FacAuth Code' => class => 'col-sm-2 control-label'
+        %= t div => class => 'col-sm-4' => begin
+            %= input_tag 'codes', type => 'text', class => 'form-control', id => 'input_codes', placeholder => '2FacAuth code'
+        % end
+    % end
+    %}
+
+    %= t div => class => 'form-group' => begin
+        %= label_for 'input_token' => 'Token' => class => 'col-sm-2 control-label'
+        %= t div => class => 'col-sm-4' => begin
+            %= input_tag 'token', type => 'text', class => 'form-control', id => 'input_token',value => "$user->{token}"
+         % end
+    % end
+
+
+    %= t div => class => 'form-group' => begin 
+        %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
+            %= submit_button 'Update 2FacAuth Token' => class => 'btn btn-default btn-primary'
+        % end
+    % end
+%end
+
+%= javascript begin
+$('document').ready( function() {
+    $("input[name='fac_auth']").click( function(){
+        if ( this.value == 'NO' ) {
+            $("#input_token").val('');
+        } else {
+            var email = $("input[name='email']").val();
+            $.ajax( {
+                url: '/user/get_token',
+                success: function(token) {
+                    $("#input_token").val( token );
+                },
+                error: function() {
+                    alert( 'Get new 2FacAuth token fail!' );
+                }
+            })
+        }
+    });
+});
+% end
+
