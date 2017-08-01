@@ -608,7 +608,7 @@ body {
   	
         % if ( session 'email' ) {
            % current_route eq 'pwsafe' ? $self->stash( class => 'active') : $self->stash( class => '');
-  	       <li class="<%= stash 'class' %>" ><a href="/pwsafe">PwSafe</a></li>
+  	       <li class="<%= stash 'class' %>" ><a href="/pwsafe">UserSetting</a></li>
         % }
         %end
 
