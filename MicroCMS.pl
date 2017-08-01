@@ -237,28 +237,28 @@ get '/user/get_token' => sub {
     $self->render( text => $token );
 } => 'get_token';
 
-get '/pwsafe' => sub {
+get '/user/setting' => sub {
     my $self  = shift;
     my $email = $self->session('email');
     $self->stash( user => Model::get_user($email) );
 } => 'pwsafe';
 
-post '/pwsafe/2fac_auth/*email' => sub {
+post '/user/setting/2fac_auth/*email' => sub {
     my $self = shift;
     unless ( $self->session('email') eq $self->stash('email') ) {
         $self->flash( failed_message => 'Only can setup user self token' );
-        return $self->redirect_to('/pwsafe');
+        return $self->redirect_to('/user/setting');
     }
     my $user = Model::get_user( $self->stash( 'email' ));
     unless ( $user ) {
         $self->flash( failed_message => 'User data not found' );
-        return $self->redirect_to('/pwsafe');
+        return $self->redirect_to('/user/setting');
     }
 
     if ( $user->{fac_auth} eq 'YES' ) {
        unless ( $self->google_2fac_auth( $user, $self->param( 'codes' ) ) ) {
             $self->flash( failed_message => 'Google 2FacAuth fail' );
-            return $self->redirect_to('/pwsafe');
+            return $self->redirect_to('/user/setting');
         }
     }
 
@@ -273,10 +273,10 @@ post '/pwsafe/2fac_auth/*email' => sub {
     Model::update_user( $user );
 
     $self->flash( sucess_message => 'Update google 2FacAuth success' );
-    $self->redirect_to( '/pwsafe' );
+    $self->redirect_to( '/user/setting' );
 } => 'update_2fac_auth_token';
 
-post '/pwsafe/edit/*email' => sub {
+post '/user/setting/edit/*email' => sub {
     my $self            = shift;
     my $email           = $self->stash('email');
     my $fac_auth        = $self->param('fac_auth');
@@ -286,37 +286,37 @@ post '/pwsafe/edit/*email' => sub {
 
     unless ( $email eq $self->session('email') ) {
         $self->flash( failed_message => 'Only can change user self password' );
-        return $self->redirect_to('/pwsafe');
+        return $self->redirect_to('/user/setting');
     }
 
     unless ( length($password_new) > 0 && $password_new eq $password_retype ) {
         $self->flash( failed_message => 'New password can\'t be null or Retype password not match' );
-        return $self->redirect_to('/pwsafe');
+        return $self->redirect_to('/user/setting');
     }
 
     my $user = Model::get_user($email);
     unless ($user) {
         $self->flash( failed_message => 'User not found' );
-        return $self->redirect_to('/pwsafe');
+        return $self->redirect_to('/user/setting');
     }
 
     if ( $user->{fac_auth} eq 'YES' ) {
        $self->app->log->debug( $self->param( 'fac_auth' ) . 'jlkajsdlkjflakjsdflkjasdkljflakjsdfkla' );
        unless ( $self->google_2fac_auth( $user, $self->param( 'fac_auth' ) ) ) {
             $self->flash( failed_message => 'Google 2FacAuth fail' );
-            return $self->redirect_to('/pwsafe');
+            return $self->redirect_to('/user/setting');
         }
     }
     my $password = b($password_old)->md5_sum;
     unless ( $user->{password} eq $password ) {
         $self->flash( failed_message => 'Old password not match' );
-        return $self->redirect_to('/pwsafe');
+        return $self->redirect_to('/user/setting');
     }
 
     $user->{password} = b($password_new)->md5_sum;
     Model::update_user($user);
     $self->flash( sucess_message => 'Update password success!' );
-    return $self->redirect_to('/pwsafe');
+    return $self->redirect_to('/user/setting');
 } => 'update_password';
 
 get '/message' => sub {
@@ -608,7 +608,7 @@ body {
   	
         % if ( session 'email' ) {
            % current_route eq 'pwsafe' ? $self->stash( class => 'active') : $self->stash( class => '');
-  	       <li class="<%= stash 'class' %>" ><a href="/pwsafe">UserSetting</a></li>
+  	       <li class="<%= stash 'class' %>" ><a href="/user/setting">UserSetting</a></li>
         % }
         %end
 
@@ -1132,7 +1132,7 @@ $(document).ready( function(){
 
 %=t h3 => 'Update user password'
 <hr>
-%= form_for "/pwsafe/edit/$user->{email}" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+%= form_for "/user/setting/edit/$user->{email}" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
     %= csrf_field
 
     %= t div => class => 'form-group' => begin
@@ -1176,7 +1176,7 @@ $(document).ready( function(){
 
 %=t h3 => 'Update 2FacAuth'
 <hr>
-%= form_for "/pwsafe/2fac_auth/$user->{email}" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
+%= form_for "/user/setting/2fac_auth/$user->{email}" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
     %= csrf_field
 
     %= t div => class => 'form-group' => begin
