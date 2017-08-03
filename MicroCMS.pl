@@ -108,7 +108,7 @@ use Mojolicious::Lite;
 use Mojo::ByteStream 'b';
 use Mojo::Date;
 use Auth::GoogleAuth;
-use Data::Dumper;
+#use Data::Dumper;
 
 # enable option if you using 4.90 or older version
 #app->secret('MicroCMS791'); # Removed deprecated secret after version 4.91
