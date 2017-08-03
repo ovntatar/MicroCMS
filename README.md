@@ -26,9 +26,9 @@ Mojolicious lite and bootstrap based simple cms
 
     #### Super Admin:
 ```
-	- access:	http://127.0.0.1:3000
-	- email: 	admin@myproject.com
-	- password:	admin
+    - access:	http://127.0.0.1:3000
+    - email: 	admin@myproject.com
+    - password:	admin
 ```
     #### Another account( normal user ):
 ```
