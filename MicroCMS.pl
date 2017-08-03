@@ -560,7 +560,6 @@ body {
       %end
 
       %= link_to 'MicroCMS' => '/' => class => 'navbar-brand'
-	    %= link_to 'Help' => '/help' => class => 'navbar-brand'
     %end
   
     %= t div => class => 'navbar-collapse collapse' => begin	  
@@ -910,29 +909,6 @@ $('document').ready( function() {
     % end
   % end 
 %end
-
-@@ help.html.ep
-% layout 'default';
-
-%= t h3 => 'Help'
-
-%= t p => 'Mojolicious lite and bootstrap based simple cms'
-<b>Requirements</b>
-<ul>
-  <li>perl 5.10 to higher
-  <li>Mojolicious (4.62, Top Hat)
-</ul>
-
-<b>Install & Start dev Server</b>
-<ul>
-  <li>$ curl -L https://cpanmin.us | perl - --sudo App::cpanminus.</li>
-  <li>$ cpanm ORLite.pm</li>
-  <li>$ cpanm Mojolicious</li>
-  <li>$ git clone https://github.com/ovntatar/MicroCMS.git</li>
-  <li>$ cd MicroCMS</li>
-  <li>$ morbo MicroCMS.pl</li>
-</ul>
-
 @@ auth.html.ep
 % layout 'default';
 
