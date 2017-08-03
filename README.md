@@ -1,5 +1,10 @@
 
 Mojolicious lite and bootstrap based simple cms
+
+  Feutures
+	- 2 factors authentication ( google authenticator + token or local database )
+	- broacast messages 
+	- multiple HTML pages ( ACL restricted )
   
   Requirements
   
