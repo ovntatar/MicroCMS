@@ -672,7 +672,10 @@ For demo please use the following details:<br>
 Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
 Email <b>bal@bal.com</b>, Password: <b>bal</b><br>
 <hr>
+%= t h3 => 'Want to know more?'
+Take a look at our <a href="https://github.com/ovntatar/MicroCMS">documentation</a>
 
+<hr>
 %= t div => class => 'panel panel-default' => begin
   %= t div => class => 'panel-heading' => 'Message - title'
   %= t div => class => 'panel-body' => begin
