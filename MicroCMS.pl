@@ -3,7 +3,7 @@
 package Model;
 
 use ORLite {
-    file    => 'MicroCMS.db',
+    file    => 'Micro-CMS.db',
     cleanup => 'VACUUM',
     create  => sub {
         my $dbh = shift;
@@ -11,47 +11,60 @@ use ORLite {
             'CREATE TABLE user 
 				(email   TEXT NOT NULL UNIQUE PRIMARY KEY,
 				password TEXT NOT NULL,
-                fac_auth TEXT NOT NULL DEFAULT "NO",
 				token TEXT,
-				rule     TEXT);'
+				role     TEXT);'
         );
         $dbh->do(
             'CREATE TABLE entries 
 				(id INTEGER NOT NULL PRIMARY KEY
 				ASC AUTOINCREMENT, 
 				email TEXT NOT NULL, 
-				content TEXT NOT NULL, 
+				content TEXT NOT NULL,
+                message_format TEXT NOT NULL,
+                page_title TEXT NOT NULL,
 				date TEXT NOT NULL);'
         );
 
         $dbh->do(
             'CREATE TABLE page
-            ( id INTEGER NOT NULL PRIMARY KEY ASC AUTOINCREMENT,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL,
-            user_email TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            can_show INTEGER NOT NULL DEFAULT 0,
-            rule INTEGER NOT NULL DEFAULT 0
-            ); '
+                ( id INTEGER NOT NULL PRIMARY KEY ASC AUTOINCREMENT,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                user_email TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                can_show INTEGER NOT NULL DEFAULT 0,
+                role INTEGER NOT NULL DEFAULT 0
+                ); '
         );
 
         # insert user demo data
-        $dbh->do('INSERT INTO user (email, password, fac_auth, token, rule) VALUES("admin@myproject.com","21232f297a57a5a743894a0e4a801fc3", "NO", "","3");');
-        $dbh->do('INSERT INTO user (email, password, fac_auth, token, rule) VALUES("bal@bal.com","ff9c63f843b11f9c3666fe46caaddea8", "NO", "","1");');
+        $dbh->do(
+            'INSERT INTO user (email, password,  token, role) 
+        VALUES("admin@myproject.com","21232f297a57a5a743894a0e4a801fc3", "","3");'
+        );
+        $dbh->do(
+            'INSERT INTO user (email, password,  token, role) 
+        VALUES("bal@bal.com","ff9c63f843b11f9c3666fe46caaddea8", "","1");'
+        );
 
         # insert page demo data
-        $dbh->do('INSERT INTO page (title, content, user_email, created_at, can_show, rule ) VALUES("Test", "Can be a long long long text content here", "admin@myproject.com", "2017-07-30 18:20", 1, 3 );');
-        $dbh->do('INSERT INTO page (title, content, user_email, created_at, can_show, rule ) VALUES("Bal Test", "bal user can see this page", "bal@bal.com", "2017-07-30 18:20", 1, 0 );');
-    },
+        $dbh->do('INSERT INTO page (title, content, user_email, created_at, can_show, role ) 
+        VALUES("Test", "Can be a long long long text content here", "admin@myproject.com", "2017-07-30 18:20", 1, 3 );'
+        );
+        $dbh->do('INSERT INTO page (title, content, user_email, created_at, can_show, role ) 
+        VALUES("Bal Test", "bal user can see this page", "bal@bal.com", "2017-07-30 18:20", 1, 0 );'
+        );
+    }
 };
+
 
 sub get_users {
     return Model->selectall_arrayref( 'SELECT * from user', { Slice => {} }, );
 }
 
 sub get_user {
-    return Model->selectrow_hashref( 'SELECT * from user where email = ?', { Slice => {} }, $_[0] );
+    return Model->selectrow_hashref( 'SELECT * from user where email = ?', 
+    { Slice => {} }, $_[0] );
 }
 
 sub update_user {
@@ -59,7 +72,8 @@ sub update_user {
     my $user = Model::get_user( $data->{email} );
     return unless $user;
 
-    Model->do( 'UPDATE user SET password = ?, fac_auth = ?, token = ?, rule = ? WHERE email = ?', {}, $data->{password}, $data->{fac_auth}, $data->{token}, $data->{rule}, $data->{email} );
+    Model->do( 'UPDATE user SET password = ?,  token = ?, role = ? WHERE email = ?', 
+    {}, $data->{password}, $data->{token}, $data->{role}, $data->{email} );
 }
 
 sub get_messages {
@@ -71,8 +85,8 @@ sub get_pages {
 }
 
 sub get_pages_can_show {
-    my $rule = shift || 0;
-    my $pages = Model->selectall_arrayref( 'SELECT id, title FROM page WHERE can_show = ? and rule <= ? ', undef, 1, $rule );
+    my $role = shift || 0;
+    my $pages = Model->selectall_arrayref( 'SELECT id, title FROM page WHERE can_show = ? and role <= ? ', undef, 1, $role );
     my @return;
     map { push @return, { id => $_->[0], title => $_->[1] } } @$pages;
     return \@return;
@@ -86,14 +100,17 @@ sub update_page {
     my $data = shift;
     my $page = Model::get_page( $data->{id} );
     return unless $page;
-
-    Model->do( 'UPDATE page SET title = ?, content = ?, user_email = ?, created_at = ?, can_show = ?, rule = ?  WHERE  id = ?', {}, $data->{title}, $data->{content}, $data->{user_email}, $data->{created_at}, $data->{can_show}, $data->{rule}, $data->{id} );
+    Model->do( 'UPDATE page SET title = ?, content = ?, user_email = ?, 
+                created_at = ?, can_show = ?, role = ?  WHERE  id = ?', 
+                {}, $data->{title}, $data->{content}, $data->{user_email}, $data->{created_at}, 
+                $data->{can_show}, $data->{role}, $data->{id} );
 }
 
 sub create_page {
     my $data = shift;
-
-    Model->do( 'INSERT INTO page (title, content, user_email, created_at, can_show, rule ) VALUES (?, ?, ?, ?, ?, ?)', {}, $data->{title}, $data->{content}, $data->{user_email}, $data->{created_at}, $data->{can_show}, $data->{rule} );
+    Model->do( 'INSERT INTO page (title, content, user_email, created_at, can_show, role ) 
+    VALUES (?, ?, ?, ?, ?, ?)', {}, $data->{title}, $data->{content}, $data->{user_email}, 
+    $data->{created_at}, $data->{can_show}, $data->{role} );
 }
 
 sub delete_page {
@@ -107,11 +124,8 @@ package main;
 use Mojolicious::Lite;
 use Mojo::ByteStream 'b';
 use Mojo::Date;
-use Auth::GoogleAuth;
-#use Data::Dumper;
+use Capture::Tiny 'capture_stdout';
 
-# enable option if you using 4.90 or older version
-#app->secret('MicroCMS791'); # Removed deprecated secret after version 4.91
 
 helper do_auth_login_fail => sub {
     my ( $self, $user ) = @_;
@@ -123,7 +137,7 @@ helper do_auth_login_fail => sub {
 helper do_login_success => sub {
     my ( $self, $user ) = @_;
     return 0 unless $user;
-    $self->session( rule  => $user->{rule} );
+    $self->session( role  => $user->{role} );
     $self->session( email => $user->{email} );
     return 1;
 };
@@ -152,20 +166,6 @@ helper auth => sub {
     }
 };
 
-helper google_2fac_auth => sub {
-    my $self = shift;
-    my $user = shift;
-    my $code = shift;
-    return 0 unless $user && $code;
-
-    my $auth = Auth::GoogleAuth->new(
-        {   secret32 => $user->{token},
-            key_id   => $user->{email},
-        }
-    );
-    return $auth->verify($code);
-};
-
 helper check_token => sub {
     my $self       = shift;
     my $validation = $self->validation;
@@ -175,8 +175,7 @@ helper check_token => sub {
 
 hook before_render => sub {
     my $self = shift;
-
-    my $pages = Model::get_pages_can_show( $self->session('rule') );
+    my $pages = Model::get_pages_can_show( $self->session('role') );
     $self->stash( nav_pages => $pages );
 };
 
@@ -198,20 +197,19 @@ get '/page/*id' => sub {
     my $self = shift;
     my $id   = $self->stash('id');
     my $page = Model::get_page($id);
-    $self->stash( page => $page );
+    my $mesages = Model::get_messages();
+    $self->stash( page => $page, mesages => $mesages );
 } => 'page';
 
 get '/login/auth'  => 'auth';
+
 post '/login/auth' => sub {
     my $self = shift;
     return $self->redirect_to('/login/auth') if $self->check_token;
     my $user = $self->session('user');
     return $self->redirect_to('/') unless $user;
     my $codes = $self->param('codes');
-
     $self->do_auth_fail($user) unless $codes;
-
-    $self->do_auth_login_fail($user) if $self->google_2fac_auth( $user, $codes ) == 0;
     return $self->redirect_to('/')   if $self->do_login_success($user);
 };
 
@@ -230,12 +228,6 @@ under sub {
     $self->redirect_to('/');
 };
 
-get '/user/get_token' => sub {
-    my $self  = shift;
-    my $auth  = Auth::GoogleAuth->new;
-    my $token = $auth->generate_secret32;
-    $self->render( text => $token );
-} => 'get_token';
 
 get '/user/setting' => sub {
     my $self  = shift;
@@ -243,43 +235,10 @@ get '/user/setting' => sub {
     $self->stash( user => Model::get_user($email) );
 } => 'pwsafe';
 
-post '/user/setting/2fac_auth/*email' => sub {
-    my $self = shift;
-    unless ( $self->session('email') eq $self->stash('email') ) {
-        $self->flash( failed_message => 'Only can setup user self token' );
-        return $self->redirect_to('/user/setting');
-    }
-    my $user = Model::get_user( $self->stash( 'email' ));
-    unless ( $user ) {
-        $self->flash( failed_message => 'User data not found' );
-        return $self->redirect_to('/user/setting');
-    }
-
-    if ( $user->{fac_auth} eq 'YES' ) {
-       unless ( $self->google_2fac_auth( $user, $self->param( 'codes' ) ) ) {
-            $self->flash( failed_message => 'Google 2FacAuth fail' );
-            return $self->redirect_to('/user/setting');
-        }
-    }
-
-    if ( $self->param('fac_auth') eq 'YES' ) {
-        $user->{fac_auth} = 'YES';
-        $user->{token} = $self->param( 'token' );
-    } else {
-        $user->{fac_auth} = 'NO';
-        $user->{token} = '';
-    }
-
-    Model::update_user( $user );
-
-    $self->flash( sucess_message => 'Update google 2FacAuth success' );
-    $self->redirect_to( '/user/setting' );
-} => 'update_2fac_auth_token';
 
 post '/user/setting/edit/*email' => sub {
     my $self            = shift;
     my $email           = $self->stash('email');
-    my $fac_auth        = $self->param('fac_auth');
     my $password_old    = $self->param('password_old');
     my $password_new    = $self->param('password_new');
     my $password_retype = $self->param('password_retype');
@@ -300,13 +259,6 @@ post '/user/setting/edit/*email' => sub {
         return $self->redirect_to('/user/setting');
     }
 
-    if ( $user->{fac_auth} eq 'YES' ) {
-       $self->app->log->debug( $self->param( 'fac_auth' ) . 'jlkajsdlkjflakjsdflkjasdkljflakjsdfkla' );
-       unless ( $self->google_2fac_auth( $user, $self->param( 'fac_auth' ) ) ) {
-            $self->flash( failed_message => 'Google 2FacAuth fail' );
-            return $self->redirect_to('/user/setting');
-        }
-    }
     my $password = b($password_old)->md5_sum;
     unless ( $user->{password} eq $password ) {
         $self->flash( failed_message => 'Old password not match' );
@@ -328,7 +280,12 @@ get '/message' => sub {
 get '/message/addmessage' => sub {
     my $self = shift;
     my $date = Mojo::Date->new(time);
-    $self->stash( date => $date );
+    my $pages = Model::get_pages();
+    my @titles;
+    for my $item (@$pages) {
+         push(@titles, $item->{'title'}); 
+    } 
+    $self->stash( titles => \@titles, date => $date );
 } => 'addmessage';
 
 post '/message/addmessage' => sub {
@@ -338,6 +295,8 @@ post '/message/addmessage' => sub {
     Model::Entries->create(
         email   => $self->param('email'),
         content => $self->param('message'),
+        message_format => $self->param('message_format'),
+        page_title => $self->param('page_title'),
         date    => $self->param('date'),
     );
     $self->flash( sucess_message => 'Create message sucessfull!' );
@@ -357,7 +316,7 @@ post '/message/delete/*id' => => sub {
 
 under sub {
     my $self = shift;
-    return 1 if $self->session("rule") == 3;
+    return 1 if $self->session("role") == 3;
     $self->flash( failed_message => 'Permission denied!' );
     return $self->redirect_to('/');
 };
@@ -391,20 +350,14 @@ post '/admin/user/edit/*email_org' => sub {
     }
 
     my $password = b( $self->param('password') )->md5_sum;
-    my $rule     = $self->param('rule');
-    my $fac_auth = $self->param('fac_auth');
+    my $role     = $self->param('role');
     my $token    = $self->param('token');
-    if ( lc($fac_auth) eq 'YES' and not $token ) {
-        $self->falsh( failed_message => 'No token set' );
-        $self->stash( user => $user );
-        return $self->redirect_to("/admin/user/edit/$email");
-    }
+
 
     Model::update_user(
         {   email    => $email,
             password => $password,
-            rule     => $rule,
-            fac_auth => $fac_auth,
+            role     => $role,
             token    => $token,
         }
     );
@@ -415,9 +368,8 @@ get '/admin/adduser' => sub {
     shift->stash( user => {} );
 } => 'adduser';
 
-post '/admin/delete/*email' => => sub {
+any ['get', 'post']  => '/admin/user/delete/*email' => => sub {
     my $self = shift;
-    return if $self->check_token;
     my $email = $self->stash('email');
     Model::User->delete_where( 'email=?', $email );
     my $users = Model::get_users();
@@ -438,9 +390,8 @@ post '/admin/adduser' => sub {
     Model::User->create(
         email    => $self->param('email'),
         password => b( $self->param('password') )->md5_sum,
-        fac_auth => $self->param('fac_auth') || 'NO',
         token    => $self->param('token') || '',
-        rule     => $self->param('rule'),
+        role     => $self->param('role'),
     );
     $self->flash( sucess_message => 'Create user sucessfull!' );
     $self->redirect_to('/admin/users');
@@ -449,7 +400,8 @@ post '/admin/adduser' => sub {
 get '/admin/pages' => sub {
     my $self  = shift;
     my $pages = Model::get_pages();
-    $self->stash( pages => $pages );
+    my $mesages = Model::get_messages();
+    $self->stash( pages => $pages, mesages => $mesages );
 } => 'pages';
 
 any ['get', 'post'] => '/admin/page/create' => sub {
@@ -471,7 +423,7 @@ any ['get', 'post'] => '/admin/page/create' => sub {
                 user_email => $self->param('user_email'),
                 can_show   => $self->param('can_show') || 0,
                 created_at => $self->param('created_at'),
-                rule       => $self->param('rule') || 0,
+                role       => $self->param('role') || 0,
             }
         );
 
@@ -490,8 +442,6 @@ any ['get', 'post'] => '/admin/page/edit/*id' => sub {
         return $self->redirect_to('/admin/pages');
     }
     if ( lc( $self->req->method ) eq 'post' ) {
-
-        # did update page thins
         my $title = $self->param('title');
         unless ($title) {
             $self->flash( failed_message => 'Title must input' );
@@ -505,7 +455,7 @@ any ['get', 'post'] => '/admin/page/edit/*id' => sub {
                 user_email => $self->param('user_email'),
                 can_show   => $self->param('can_show') || 0,
                 created_at => $self->param('created_at'),
-                rule       => $self->param('rule') || 0,
+                role       => $self->param('role') || 0,
             }
         );
 
@@ -579,7 +529,7 @@ body {
   	      % current_route eq 'index' ?  $self->stash( class => 'active') :  $self->stash( class => '');
   		    <li class="<%= stash 'class' %>" ><a href="/">Home</a></li>
   
-          % if ( (session 'rule') > 2 ) {
+          % if ( (session 'role') > 2 ) {
   	        % current_route eq 'adminusers' ? $self->stash( class => 'active') : $self->stash( class => '');
   		      <li class="<%= stash 'class' %>" ><a href="/admin/users">Users</a></li>
   	      %}
@@ -587,7 +537,7 @@ body {
           % current_route eq 'message' ? $self->stash( class => 'active') : $self->stash( class => '');
   		  <li class="<%= stash 'class' %>" ><a href="/message">Message</a></li>
          
-          % if ( (session 'rule') > 2 ) {
+          % if ( (session 'role') > 2 ) {
             % current_route eq 'pages' ? $self->stash( class => 'active') : $self->stash( class => '');
   		    <li class="<%= stash 'class' %>" ><a href="/admin/pages">Pages</a></li>
           % }
@@ -651,7 +601,8 @@ body {
   %= t div => class => 'container' => begin
     <br>
     %= t p => class => 'text-muted' => begin
-      © 2017
+      % use DateTime qw(); my $date = DateTime->now->strftime('%Y');
+      %= $date;
       %= link_to 'Project GitHub' => 'https://github.com/ovntatar/MicroCMS'
     %end
   %end
@@ -661,35 +612,33 @@ body {
 </body>
 </html>
 
-
-
 @@ index.html.ep
 % layout 'default';
 
 %= t h1 => 'MicroCMS'
 
-For demo please use the following details:<br>
-Email <b>admin@myproject.com</b>, Password: <b>admin</b><br>
-Email <b>bal@bal.com</b>, Password: <b>bal</b><br>
-<hr>
-%= t h3 => 'Want to know more?'
-Take a look at our <a href="https://github.com/ovntatar/MicroCMS">documentation</a>
-
-<hr>
 %= t div => class => 'panel panel-default' => begin
-  %= t div => class => 'panel-heading' => 'Message - title'
+  %= t div => class => 'panel-heading' => 'Broadcast'
   %= t div => class => 'panel-body' => begin
     %= t ul => begin
       % for my $item (@$mesages) {
         % my $item_str = sprintf( '%s - %s', $item->{content}, $item->{email} );
-	      %= t li => begin
+          % my $class= sprintf( '%s-%s', 'text', $item->{message_format} );
+	      %= t li => class => $class  => begin
+          % if ( $item_str =~ /^eval/)  {
+          % (my $new_item_str= $item->{content} ) =~ s/eval//g;
+          % use Capture::Tiny 'capture_stdout';
+          % my $t = capture_stdout { eval "$new_item_str" } ;
+          %= $t;
+          % } else {
           %= $item_str
+          % }
+          %= tag 'br'
         % end
 	    %} 
     % end
   % end
 % end
-
 
 @@ adminusers.html.ep
 % layout 'default';
@@ -703,9 +652,7 @@ Take a look at our <a href="https://github.com/ovntatar/MicroCMS">documentation<
 	  %= t tr => begin
 	  %= t th => 'Email'
       %= t th => 'Password'
-      %= t th => '2FacAuth'
-      %= t th => 'Token'
-	  %= t th => 'Rule'
+	  %= t th => 'role'
 	  %= t th => 'Action'
     % end
   % end
@@ -715,27 +662,15 @@ Take a look at our <a href="https://github.com/ovntatar/MicroCMS">documentation<
   	  %= t tr => begin
   	    %= t td => $items->{email}
   	    %= t td => $items->{password}
-  	    %= t td => begin
-            % if ( lc( $items->{fac_auth} ) eq 'yes' ){
-                %= t span => class => 'label label-success' => 'Enable'
-            % } else {
-                %= t span => class => 'label label-default' => 'Disable'
-            % }
-        % end
-  	    %= t td => $items->{token}
-  	    %= t td => $items->{rule}
+  	    %= t td => $items->{role}
         %= t td => begin
-  	      %= link_to 'Edit' => "/admin/user/edit/$items->{email}" => class => 'btn btn-warning btn-sm' 
-          %= form_for "delete/$items->{email}" => (method => 'post') => begin
-  	        %= csrf_field
-  	        %= submit_button 'Delete' => class => 'btn btn-primary btn-sm'
-  	      %end 
+  	      %= link_to 'Edit' => "/admin/user/edit/$items->{email}" => class => 'btn btn-xs btn-primary' 
+          %= link_to 'Delete' => "/admin/user/delete/$items->{email}" => class => 'btn btn-xs btn-danger'
         % end
       % end
   	%}
   % end
 % end
-
 
 @@ edituser.html.ep
 % layout 'default';
@@ -744,15 +679,12 @@ Take a look at our <a href="https://github.com/ovntatar/MicroCMS">documentation<
 <hr>
 %= form_for "/admin/user/edit/$user->{email}" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
 %= include '_user_form'
-
 %= t div => class => 'form-group' => begin 
     %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
       %= submit_button 'Update' => class => 'btn btn-default btn-primary'
   % end
 % end
-
 %end
-
 
 @@ message.html.ep
 % layout 'default';
@@ -767,6 +699,7 @@ Take a look at our <a href="https://github.com/ovntatar/MicroCMS">documentation<
 	    %= t th => 'email'
 	    %= t th => 'content'
 	    %= t th => 'date'
+        %= t th => 'message_format'
 	    %= t th => 'Action'
     % end
   % end
@@ -777,10 +710,11 @@ Take a look at our <a href="https://github.com/ovntatar/MicroCMS">documentation<
 	      %= t td => $item->{email}
 	      %= t td => $item->{content}
 	      %= t td => $item->{date}
+          %= t td => $item->{message_format}
 	      %= t td => begin
 	        %= form_for "/message/delete/$item->{id}" => method => 'post' => begin
 	          %= csrf_field
-              % if ( session->{rule} < 3 ){
+              % if ( session->{role} < 3 ){
                 %= submit_button 'Delete' => class => 'btn btn-primary btn-sm' => disabled => 'disabled'
               % } else {
                 %= submit_button 'Delete' => class => 'btn btn-primary btn-sm'
@@ -808,7 +742,6 @@ Take a look at our <a href="https://github.com/ovntatar/MicroCMS">documentation<
 % end
 %end
 
-
 @@ _user_form.html.ep
 %= csrf_field
 %= t div => class => 'form-group' => begin
@@ -826,57 +759,12 @@ Take a look at our <a href="https://github.com/ovntatar/MicroCMS">documentation<
 % end
 
 %= t div => class => 'form-group' => begin
-    %= label_for 'token_flag' => '2FacAuth' => class => 'col-sm-2 control-label'
+    %= label_for 'inputNumber' => 'role' => class => 'col-sm-2 control-label'
     %= t div => class => 'col-sm-10' => begin
-        % if ( $user->{fac_auth} eq 'YES' ) {
-            %= radio_button fac_auth => 'YES', checked => 1
-            Enable
-            %= radio_button fac_auth => 'NO'
-            Disable
-        % } else {
-            %= radio_button fac_auth => 'YES', 
-            Enable
-            %= radio_button fac_auth => 'NO', checked => 1
-            Disable
-        % }
-    % end
-% end
-
-%= t div => class => 'form-group' => begin
-    %= label_for 'inputtoken' => 'Token' => class => 'col-sm-2 control-label'
-    %= t div => class => 'col-sm-10' => begin
-      %= input_tag 'token', type => 'text', class => 'form-control', id => 'inputtoken', placeholder => 'token', value => "$user->{token}"
+      %= input_tag 'role', type => 'number', class => 'form-control', id => 'inputNumber', placeholder => 'Add acl role 1 guest 2 user 3 admin ', value => "$user->{role}"
   % end
 % end
 
-
-%= t div => class => 'form-group' => begin
-    %= label_for 'inputNumber' => 'Rule' => class => 'col-sm-2 control-label'
-    %= t div => class => 'col-sm-10' => begin
-      %= input_tag 'rule', type => 'number', class => 'form-control', id => 'inputNumber', placeholder => 'Rule', value => "$user->{rule}"
-  % end
-% end
-
-%= javascript begin
-$('document').ready( function() {
-    $("input[name='fac_auth']").click( function(){
-        if ( this.value == 'NO' ) {
-            $("#inputtoken").val('');
-        } else {
-            var email = $("input[name='email']").val();
-            $.ajax( {
-                url: '/user/get_token',
-                success: function(token) {
-                    $("#inputtoken").val( token );
-                },
-                error: function() {
-                    alert( 'Get new 2FacAuth token fail!' );
-                }
-            })
-        }
-    });
-});
-% end
 
 @@ addmessage.html.ep
 % layout 'default';
@@ -892,10 +780,25 @@ $('document').ready( function() {
     % end
   % end
 
+
+  %= t div => class => 'form-group' => begin
+	  %= label_for 'inputTxt' => 'Message_format' => class => 'col-sm-2 control-label'
+	  %= t div => class => 'col-sm-10' => begin
+        %= select_field message_format => [[info => 'info', selected => 'selected'], 'warning', 'danger'] => class => 'form-control'
+    % end
+  % end
+
+  %= t div => class => 'form-group' => begin
+	  %= label_for 'inputTxt' => 'Pages' => class => 'col-sm-2 control-label'
+	  %= t div => class => 'col-sm-10' => begin
+        %= select_field page_title  => [   @{ stash('titles') }  ] => class => 'form-control'
+    % end
+  % end
+
   %= t div => class => 'form-group' => begin
 	  %= label_for 'inputTxt' => 'Message' => class => 'col-sm-2 control-label'
 	  %= t div => class => 'col-sm-10' => begin
-	    %= input_tag 'message', type => 'text', class => 'form-control', id => 'inputTxt', placeholder => 'Message'
+	    %= text_area 'message', type => 'text', class => 'form-control', id => 'inputTxt', placeholder => 'Message'
     % end
   % end
 	
@@ -909,26 +812,6 @@ $('document').ready( function() {
   %= t div => class => 'form-group' => begin
 	  %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
       %= submit_button 'Add Message' => class => 'btn btn-default'
-    % end
-  % end 
-%end
-@@ auth.html.ep
-% layout 'default';
-
-%= t h3 => 'Google Authenticator'
-<hr>
-%= form_for '/login/auth' => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
-  %= csrf_field
-  %= t div => class => "form-group" => begin
-	  %= label_for 'g_codes' => 'Codes' => class => 'col-sm-2 control-label'
-	  %= t div => class => 'col-sm-2' => begin
-      %= input_tag 'codes', type => 'number', class => 'form-control', id => 'g_codes', placeholder => 'Codes'
-    % end
-  % end
-
-  %= t div => class => 'form-group' => begin
-	  %= t div => class => 'col-sm-offset-2 col-sm-2' => begin
-      %= submit_button 'Auth' => class => 'btn btn-default btn-success'
     % end
   % end 
 %end
@@ -978,7 +861,6 @@ $('document').ready( function() {
   %= t div => class => 'alert alert-warning' => 'No pages data!'
 % }
 
-
 @@ page_create.html.ep
 % layout 'default';
 
@@ -1003,11 +885,10 @@ $('document').ready( function() {
     
     %= t div => class => 'form-group' => begin 
         %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
-            %= submit_button 'Edit Page' => class => 'btn btn-primary'
+            %= submit_button 'Save Page' => class => 'btn btn-primary'
         % end
     % end
 % end
-
 
 @@ _page_form.html.ep 
 %= csrf_field
@@ -1021,9 +902,8 @@ $('document').ready( function() {
 %= t div => class => 'form-group' => begin
     %= label_for 'input_content' => 'Content' => class => 'col-sm-2 control-label'
     %= t div => class => 'col-sm-10' => begin
-      %= text_area 'content' => rows => 10 => class => 'col-sm-12' =>  begin
+      %= input_tag 'content' => class => 'col-sm-12' => placeholder => 'Please add message in the message area and assign it to the pages' 
         %= $page->{content}
-      % end
   % end
 % end
 
@@ -1069,9 +949,9 @@ $('document').ready( function() {
 % end
 
 %= t div => class => 'form-group' => begin
-    %= label_for 'input_rule' => 'Rule' => class => 'col-sm-2 control-label'
+    %= label_for 'input_role' => 'role' => class => 'col-sm-2 control-label'
     %= t div => class => 'col-sm-4' => begin
-        %= input_tag rule => "$page->{rule}", type => 'number', class => 'form-control', id => 'input_rule', placeholder => 'Nmber can be: 0 ~ 10'
+        %= input_tag role => "$page->{role}", type => 'number', class => 'form-control', id => 'input_role', placeholder => 'ACL level can be: 0 ~ 10'
     % end
 % end
 
@@ -1086,14 +966,39 @@ $(document).ready( function(){
 });
 % end
 
-
 @@ page.html.ep
 % layout 'default';
 
 %= t h2 => $page->{title}
 <hr>
 %= t div => class => 'well' => begin
-    %= $page->{content}
+            
+  %= t div => class => 'panel-heading' => 'Broadcast'
+  %= t div => class => 'panel-body' => begin
+    %= t ul => begin
+      % for my $item (@$mesages) {
+        % if ( $page->{title} eq $item->{page_title} ) {
+        % my $item_str = sprintf( '%s - %s', $item->{content}, $item->{email} );
+          % my $class= sprintf( '%s-%s', 'text', $item->{message_format} );
+	      %= t li => class => $class  => begin
+          % if ( $page->{title} eq $item->{page_title} ) {
+            % if ( $item_str =~ /^eval/)  {
+                % (my $new_item_str= $item->{content} ) =~ s/eval//g;
+                % use Capture::Tiny 'capture_stdout';
+                % my $t = capture_stdout { eval "$new_item_str" } ;
+                %= $t;
+            % } else {
+                %= $item_str
+            % }
+           % }
+          %= tag 'br'
+        % end
+        % }
+	    %} 
+    % end
+  % end
+
+
 % end
 <hr>
 %= t p => begin
@@ -1120,30 +1025,18 @@ $(document).ready( function(){
             %= input_tag 'password_old', type => 'password', class => 'form-control', id => 'input_password_old', placeholder => 'Old password'
         % end
     % end
-
     %= t div => class => 'form-group' => begin
         %= label_for 'input_password_new' => 'New Password' => class => 'col-sm-2 control-label'
         %= t div => class => 'col-sm-4' => begin
             %= input_tag 'password_new', type => 'password', class => 'form-control', id => 'input_password_new', placeholder => 'New password'
         % end
     % end
-
     %= t div => class => 'form-group' => begin
         %= label_for 'input_password_retype' => 'Retype Password' => class => 'col-sm-2 control-label'
         %= t div => class => 'col-sm-4' => begin
             %= input_tag 'password_retype', type => 'password', class => 'form-control', id => 'input_password_retype', placeholder => 'Retype new password'
          % end
     % end
-
-    % if ( $user->{fac_auth} eq 'YES' ) {
-        %= t div => class => 'form-group' => begin
-            %= label_for 'input_fac_auth' => '2FacAuth Code' => class => 'col-sm-2 control-label'
-            %= t div => class => 'col-sm-4' => begin
-                %= input_tag 'fac_auth', type => 'text', class => 'form-control', id => 'input_fac_auth', placeholder => '2FacAuth code'
-            % end
-        % end
-    %}
-
     %= t div => class => 'form-group' => begin 
         %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
             %= submit_button 'Update password' => class => 'btn btn-default btn-primary'
@@ -1151,73 +1044,6 @@ $(document).ready( function(){
     % end
 % end
 
-<hr>
-
-%=t h3 => 'Update 2FacAuth'
-<hr>
-%= form_for "/user/setting/2fac_auth/$user->{email}" => method => 'post' => class =>'form-horizontal' => role => 'form'=> begin
-    %= csrf_field
-
-    %= t div => class => 'form-group' => begin
-        %= label_for 'token_flag' => '2FacAuth' => class => 'col-sm-2 control-label'
-        %= t div => class => 'col-sm-10' => begin
-            % if ( $user->{fac_auth} eq 'YES' ) {
-                %= radio_button fac_auth => 'YES', checked => 1
-                Enable
-                %= radio_button fac_auth => 'NO'
-                Disable
-            % } else {
-                %= radio_button fac_auth => 'YES', 
-                Enable
-                %= radio_button fac_auth => 'NO', checked => 1
-                Disable
-            % }
-        % end
-% end
 
 
-    % if ( $user->{fac_auth} eq 'YES' ) {
-    %= t div => class => 'form-group' => begin
-        %= label_for 'input_codes' => '2FacAuth Code' => class => 'col-sm-2 control-label'
-        %= t div => class => 'col-sm-4' => begin
-            %= input_tag 'codes', type => 'text', class => 'form-control', id => 'input_codes', placeholder => '2FacAuth code'
-        % end
-    % end
-    %}
-
-    %= t div => class => 'form-group' => begin
-        %= label_for 'input_token' => 'Token' => class => 'col-sm-2 control-label'
-        %= t div => class => 'col-sm-4' => begin
-            %= input_tag 'token', type => 'text', class => 'form-control', id => 'input_token',value => "$user->{token}"
-         % end
-    % end
-
-
-    %= t div => class => 'form-group' => begin 
-        %= t div => class => 'col-sm-offset-2 col-sm-10' => begin
-            %= submit_button 'Update 2FacAuth Token' => class => 'btn btn-default btn-primary'
-        % end
-    % end
-%end
-
-%= javascript begin
-$('document').ready( function() {
-    $("input[name='fac_auth']").click( function(){
-        if ( this.value == 'NO' ) {
-            $("#input_token").val('');
-        } else {
-            var email = $("input[name='email']").val();
-            $.ajax( {
-                url: '/user/get_token',
-                success: function(token) {
-                    $("#input_token").val( token );
-                },
-                error: function() {
-                    alert( 'Get new 2FacAuth token fail!' );
-                }
-            })
-        }
-    });
-});
-% end
 
