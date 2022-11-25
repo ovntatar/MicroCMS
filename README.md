@@ -4,14 +4,20 @@ Mojolicious lite and bootstrap based simple cms
   ### Features
   ```
   - multi-users micro cms system
-	- broacast messages to the home page 
-	- multiple HTML pages ( ACL restricted )
+  - broacast messages to the home page 
+  - message page allocation 
+  - multiple HTML pages ( ACL restricted )
   - interpred content code by using eval 
   ```
   e.g Add message and assign item to page 
   ```shell
   eval use Mojo::UserAgent; my $ua  = Mojo::UserAgent->new; my $res = $ua->get('docs.mojolicious.org')->result; print $res->code;
   ```
+  ### Usage
+  
+  - generate a company intern micro monitoring tool
+  - generate a company intern html bookmarks list 
+  
   ### Requirements
   ```
 	- perl 5.10 to higher
