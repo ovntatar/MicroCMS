@@ -3,10 +3,14 @@ Mojolicious lite and bootstrap based simple cms
 
   ### Features
   ```
-    - multi-users micro cms system
-	- 2 factors authentication ( google authenticator + token or local database )
-	- broacast messages 
+  - multi-users micro cms system
+	- broacast messages to the home page 
 	- multiple HTML pages ( ACL restricted )
+  - interpred content code by using eval 
+  ```
+  e.g Add message and assign item to page 
+  ```shell
+  eval use Mojo::UserAgent; my $ua  = Mojo::UserAgent->new; my $res = $ua->get('docs.mojolicious.org')->result; print $res->code;
   ```
   ### Requirements
   ```
@@ -17,7 +21,6 @@ Mojolicious lite and bootstrap based simple cms
   ```
 	-  $ curl -L https://cpanmin.us | perl - --sudo App::cpanminus.
 	-  $ cpanm ORLite.pm
-	-  $ cpanm Auth::GoogleAuth;
 	-  $ cpanm Mojolicious
 	-  $ git clone https://github.com/ovntatar/MicroCMS.git
 	-  $ cd MicroCMS
